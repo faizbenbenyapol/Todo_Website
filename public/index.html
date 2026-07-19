@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#E8E7E2" id="themeColorMeta">
+<title>Eisenhower Board — จัดการงานตามความสำคัญ</title>
+<style>
+  /* ป้องกันหน้าฟอร์มภายในหลุดออกมาระหว่างที่ stylesheet หลักกำลังโหลด */
+  .hidden { display: none !important; }
+</style>
+<script src="./js/theme-init.js"></script>
+<link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+
+<!-- ===================== AUTH SCREEN ===================== -->
+<div id="authScreen">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div>
+        <div class="auth-brand-text">Eisenhower Board</div>
+        <div class="auth-brand-sub">Decide what matters first</div>
+      </div>
+    </div>
+
+    <div id="authError" class="form-error hidden"></div>
+
+    <!-- แบบฟอร์มตั้งค่าครั้งแรก -->
+    <form id="setupForm" class="hidden">
+      <h1>ตั้งค่าครั้งแรก</h1>
+      <p class="sub">สร้างบัญชีผู้ดูแลระบบสำหรับเข้าใช้งานบอร์ดนี้</p>
+      <div class="field">
+        <label for="setupUsername">ชื่อผู้ใช้</label>
+        <input id="setupUsername" type="text" autocomplete="username" minlength="3" maxlength="64" required>
+      </div>
+      <div class="field">
+        <label for="setupPassword">รหัสผ่าน</label>
+        <input id="setupPassword" type="password" autocomplete="new-password" minlength="12" required>
+        <small class="hint">อย่างน้อย 12 ตัวอักษร และไม่เกิน 72 ไบต์</small>
+      </div>
+      <div class="field hidden" id="setupTokenField">
+        <label for="setupToken">รหัสตั้งค่าครั้งแรก</label>
+        <input id="setupToken" type="password" autocomplete="off" maxlength="500">
+        <small class="hint">ใช้ค่า SETUP_TOKEN ที่กำหนดไว้บนเซิร์ฟเวอร์</small>
+      </div>
+      <button type="submit" class="btn btn-primary" id="setupSubmitBtn">สร้างบัญชีและเข้าใช้งาน</button>
+    </form>
+
+    <!-- แบบฟอร์มเข้าสู่ระบบ -->
+    <form id="loginForm" class="hidden">
+      <h1>เข้าสู่ระบบ</h1>
+      <p class="sub">กรอกชื่อผู้ใช้และรหัสผ่านของคุณ</p>
+      <div class="field">
+        <label for="loginUsername">ชื่อผู้ใช้</label>
+        <input id="loginUsername" type="text" autocomplete="username" maxlength="64" required>
+      </div>
+      <div class="field">
+        <label for="loginPassword">รหัสผ่าน</label>
+        <input id="loginPassword" type="password" autocomplete="current-password" required>
+      </div>
+      <label class="remember-device" for="rememberDevice">
+        <input id="rememberDevice" type="checkbox" checked>
+        <span class="remember-check" aria-hidden="true">
+          <svg viewBox="0 0 16 16"><path d="m3.5 8 3 3 6-6" /></svg>
+        </span>
+        <span>
+          <strong>จดจำอุปกรณ์นี้</strong>
+          <small>คงสถานะเข้าสู่ระบบไว้ 30 วัน</small>
+        </span>
+      </label>
+      <button type="submit" class="btn btn-primary" id="loginSubmitBtn">เข้าสู่ระบบ</button>
+    </form>
+
+    <div class="google-auth-section" id="googleAuthSection">
+      <div class="auth-divider"><span>หรือ</span></div>
+      <div class="google-button-slot hidden" id="googleLoginButton"></div>
+      <div class="google-awaiting-config" id="googleLoginPlaceholder">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.23-.2-1.77H12v3.41h5.52c-.11.85-.71 2.14-2.04 3l-.02.11 2.96 2.29.21.02c1.93-1.78 2.97-4.4 2.97-7.06Z" />
+          <path fill="#34A853" d="M12 22c2.76 0 5.07-.91 6.76-2.48l-3.22-2.49c-.86.6-2.02 1.02-3.54 1.02-2.65 0-4.9-1.79-5.7-4.26l-.11.01-3.08 2.38-.04.1A10.21 10.21 0 0 0 12 22Z" />
+          <path fill="#FBBC05" d="M6.3 13.79A6.2 6.2 0 0 1 5.96 12c0-.62.12-1.22.32-1.79l-.01-.12-3.12-2.42-.1.05A10 10 0 0 0 2 12c0 1.55.37 3.02 1.05 4.28l3.25-2.49Z" />
+          <path fill="#EA4335" d="M12 5.95c1.92 0 3.21.83 3.95 1.52l2.88-2.81A9.74 9.74 0 0 0 12 2a10.21 10.21 0 0 0-8.95 5.72l3.23 2.49C7.1 7.74 9.35 5.95 12 5.95Z" />
+        </svg>
+        <span>
+          <strong>Google Login พร้อมเปิดใช้งาน</strong>
+          <small>รอใส่ GOOGLE_CLIENT_ID ในไฟล์ .env</small>
+        </span>
+      </div>
+      <p class="google-auth-hint" id="googleAuthHint">เมื่อใส่ Client ID แล้ว ปุ่ม Google ทางการจะแสดงอัตโนมัติ</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== APP SCREEN ===================== -->
+<div id="appScreen" class="hidden">
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <div>
+        <div class="sidebar-brand-text">Eisenhower Board</div>
+        <div class="sidebar-brand-sub">พื้นที่งานส่วนตัว</div>
+      </div>
+    </div>
+
+    <button class="nav-item active" type="button" data-view="dashboard" aria-label="แดชบอร์ด">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>
+      <span class="nav-label">แดชบอร์ด</span>
+      <span class="nav-badge" id="sidebarTaskCount">0</span>
+    </button>
+    <button class="nav-item" type="button" data-view="notes" aria-label="จดด่วน">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v12H8l-4 4V4z"/></svg>
+      <span class="nav-label">จดด่วน</span>
+      <span class="nav-badge" id="sidebarNoteCount">0</span>
+    </button>
+    <button class="nav-item" type="button" data-view="settings" aria-label="ตั้งค่า">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6V21a2 2 0 11-4 0v-.2a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.6-1H3a2 2 0 110-4h.2a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.6V3a2 2 0 114 0v.2a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.6 1H21a2 2 0 110 4h-.2a1.7 1.7 0 00-1.5 1z"/></svg>
+      <span class="nav-label">ตั้งค่า</span>
+    </button>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="sidebar-user">
+      <div class="sidebar-profile">
+        <div class="sidebar-avatar" id="sidebarAvatar">·</div>
+        <div>
+          <div class="who" id="sidebarUsername">·</div>
+          <div class="sidebar-profile-label">Personal workspace</div>
+        </div>
+      </div>
+      <button class="nav-item" type="button" id="logoutBtn" aria-label="ออกจากระบบ">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        <span class="nav-label">ออกจากระบบ</span>
+      </button>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- ---------- Dashboard view ---------- -->
+    <section id="view-dashboard" class="view active">
+      <div class="topbar dashboard-topbar">
+        <div>
+          <div class="page-eyebrow">Eisenhower workspace</div>
+          <h1>แดชบอร์ด</h1>
+        </div>
+        <div class="date-pill">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+          <span id="todayLabel">—</span>
+        </div>
+      </div>
+
+      <div class="matrix-axes">
+        <div class="axis-label axis-top-left">← ด่วน</div>
+        <div class="axis-label axis-top-right">ไม่ด่วน →</div>
+        <div class="axis-label axis-side"><span>สำคัญ</span><span>ไม่สำคัญ</span></div>
+
+        <div class="quad-card" data-q="1">
+          <div class="quad-head">
+            <div class="quad-title-group">
+              <span class="quad-tag">Q1 · ด่วน+สำคัญ</span>
+              <span class="quad-name">ทำทันที</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="quad-count" data-count="1">0</span>
+              <button class="quad-add" type="button" data-add-q="1" title="เพิ่มงาน" aria-label="เพิ่มงานในหมวดทำทันที">+</button>
+            </div>
+          </div>
+          <div class="quad-body" data-list="1"></div>
+        </div>
+
+        <div class="quad-card" data-q="2">
+          <div class="quad-head">
+            <div class="quad-title-group">
+              <span class="quad-tag">Q2 · สำคัญ ไม่ด่วน</span>
+              <span class="quad-name">วางแผนทำ</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="quad-count" data-count="2">0</span>
+              <button class="quad-add" type="button" data-add-q="2" title="เพิ่มงาน" aria-label="เพิ่มงานในหมวดวางแผนทำ">+</button>
+            </div>
+          </div>
+          <div class="quad-body" data-list="2"></div>
+        </div>
+
+        <div class="quad-card" data-q="3">
+          <div class="quad-head">
+            <div class="quad-title-group">
+              <span class="quad-tag">Q3 · ด่วน ไม่สำคัญ</span>
+              <span class="quad-name">มอบหมาย</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="quad-count" data-count="3">0</span>
+              <button class="quad-add" type="button" data-add-q="3" title="เพิ่มงาน" aria-label="เพิ่มงานในหมวดมอบหมาย">+</button>
+            </div>
+          </div>
+          <div class="quad-body" data-list="3"></div>
+        </div>
+
+        <div class="quad-card" data-q="4">
+          <div class="quad-head">
+            <div class="quad-title-group">
+              <span class="quad-tag">Q4 · ไม่ด่วน ไม่สำคัญ</span>
+              <span class="quad-name">ทำทีหลัง</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="quad-count" data-count="4">0</span>
+              <button class="quad-add" type="button" data-add-q="4" title="เพิ่มงาน" aria-label="เพิ่มงานในหมวดทำทีหลัง">+</button>
+            </div>
+          </div>
+          <div class="quad-body" data-list="4"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- Notes view ---------- -->
+    <section id="view-notes" class="view">
+      <div class="topbar">
+        <div>
+          <div class="page-eyebrow">Quick capture</div>
+          <h1>จดด่วน</h1>
+        </div>
+      </div>
+      <div class="note-composer">
+        <textarea id="noteInput" maxlength="5000" placeholder="พิมพ์สิ่งที่อยากจดไว้..."></textarea>
+        <div class="note-composer-actions">
+          <button class="btn btn-primary" type="button" id="saveNoteBtn" style="width:auto;">บันทึก</button>
+        </div>
+      </div>
+      <div class="notes-list" id="notesList"></div>
+      <button class="btn btn-secondary hidden notes-load-more" type="button" id="loadMoreNotesBtn">โหลดบันทึกเก่าเพิ่ม</button>
+    </section>
+
+    <!-- ---------- Settings view ---------- -->
+    <section id="view-settings" class="view">
+      <div class="topbar">
+        <div>
+          <div class="page-eyebrow">Workspace preferences</div>
+          <h1>ตั้งค่า</h1>
+        </div>
+      </div>
+
+      <div class="settings-section appearance-section">
+        <div class="settings-section-head">
+          <div>
+            <h2>รูปลักษณ์</h2>
+            <p class="desc">เลือกธีมที่สบายตา ระบบจะจดจำไว้บนอุปกรณ์นี้</p>
+          </div>
+          <span class="connection-badge ready" id="activeThemeLabel">ตามระบบ</span>
+        </div>
+        <div class="theme-options" role="group" aria-label="เลือกธีม">
+          <button class="theme-option active" type="button" data-theme-value="system">
+            <span class="theme-preview theme-system"><i></i><i></i></span>
+            <strong>ตามระบบ</strong><small>เปลี่ยนอัตโนมัติ</small>
+          </button>
+          <button class="theme-option" type="button" data-theme-value="light">
+            <span class="theme-preview theme-light"><i></i></span>
+            <strong>สว่าง</strong><small>ชัดเจน โปร่งสบาย</small>
+          </button>
+          <button class="theme-option" type="button" data-theme-value="dark">
+            <span class="theme-preview theme-dark"><i></i></span>
+            <strong>มืด</strong><small>สบายตาในที่มืด</small>
+          </button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h2>แจ้งเตือนผ่าน Telegram</h2>
+        <p class="desc">รับการแจ้งเตือนเมื่อใกล้ถึงกำหนดงาน และสรุปงานประจำวัน</p>
+
+        <div class="field">
+          <label for="botToken">Telegram Bot Token</label>
+          <input id="botToken" type="password" autocomplete="off" maxlength="500" placeholder="ใส่ Token ใหม่เมื่อต้องการเปลี่ยน">
+          <small class="hint" id="botTokenStatus">ยังไม่ได้ตั้งค่า Token</small>
+        </div>
+        <div class="field">
+          <label for="chatId">Telegram Chat ID</label>
+          <input id="chatId" type="text" maxlength="100" placeholder="เช่น 123456789">
+        </div>
+
+        <div class="settings-row">
+          <div>
+            <div class="row-label">แจ้งเตือนล่วงหน้าก่อนถึงกำหนด</div>
+            <div class="row-hint">ระบบตรวจสอบทุก 1 นาที</div>
+          </div>
+          <select id="notifyBefore" class="field-select" aria-label="แจ้งเตือนล่วงหน้าก่อนถึงกำหนด">
+            <option value="15">15 นาที</option>
+            <option value="30">30 นาที</option>
+            <option value="60">1 ชั่วโมง</option>
+            <option value="180">3 ชั่วโมง</option>
+            <option value="1440">1 วัน</option>
+          </select>
+        </div>
+
+        <div class="settings-row">
+          <div>
+            <div class="row-label">สรุปงานประจำวัน</div>
+            <div class="row-hint">ส่งรายการงานที่ยังไม่เสร็จทุกวัน</div>
+          </div>
+          <button class="toggle" type="button" id="dailySummaryToggle" aria-label="เปิดหรือปิดสรุปงานประจำวัน" aria-pressed="false"></button>
+        </div>
+
+        <div class="settings-row" id="dailySummaryTimeRow">
+          <div class="row-label">เวลาที่ส่งสรุป</div>
+          <input id="dailySummaryTime" class="settings-time-input" type="time">
+        </div>
+
+        <div class="settings-actions">
+          <button class="btn btn-primary" type="button" id="saveSettingsBtn" style="width:auto;">บันทึกการตั้งค่า</button>
+          <button class="btn btn-secondary" type="button" id="testTelegramBtn">ทดสอบส่งข้อความ</button>
+          <button class="btn btn-danger-ghost hidden" type="button" id="clearTelegramBtn">ลบ Bot Token</button>
+        </div>
+
+        <div id="settingsMsg"></div>
+
+        <div class="bot-instructions">
+          วิธีสร้างบอท: เปิดแชทกับ <code>@BotFather</code> ใน Telegram → พิมพ์ <code>/newbot</code> → ตั้งชื่อบอท → รับ Token มาใส่ในช่องด้านบน<br>
+          วิธีหา Chat ID: เปิดแชทกับ <code>@userinfobot</code> แล้วพิมพ์อะไรก็ได้ บอทจะบอก Chat ID ของคุณ
+        </div>
+      </div>
+
+      <div class="settings-section" id="googleConnectionSection">
+        <div class="settings-section-head">
+          <div>
+            <h2>เชื่อมบัญชี Google</h2>
+            <p class="desc">ใช้ Google เพื่อเข้าสู่บอร์ดเดิม โดยไม่ต้องกรอกรหัสผ่านในครั้งต่อไป</p>
+          </div>
+          <span class="connection-badge" id="googleConnectionBadge">ยังไม่ตั้งค่า</span>
+        </div>
+        <div class="google-connection-card">
+          <div class="google-connection-copy" id="googleConnectionStatus" aria-live="polite">
+            เพิ่ม GOOGLE_CLIENT_ID ในไฟล์ .env เพื่อเปิดใช้งาน
+          </div>
+          <div class="google-button-slot hidden" id="googleLinkButton"></div>
+        </div>
+        <small class="settings-security-note">ระบบบันทึกเฉพาะรหัสบัญชี Google (sub), อีเมล และชื่อที่แสดง — ไม่บันทึกรหัสผ่าน Google</small>
+      </div>
+
+      <div class="settings-section">
+        <h2>เปลี่ยนรหัสผ่าน</h2>
+        <p class="desc">ใช้รหัสผ่านปัจจุบันเพื่อยืนยันตัวตนก่อนตั้งรหัสใหม่</p>
+        <div class="field">
+          <label for="currentPassword">รหัสผ่านปัจจุบัน</label>
+          <input id="currentPassword" type="password" autocomplete="current-password">
+        </div>
+        <div class="field">
+          <label for="newPassword">รหัสผ่านใหม่</label>
+          <input id="newPassword" type="password" autocomplete="new-password" minlength="12">
+          <small class="hint">อย่างน้อย 12 ตัวอักษร และไม่เกิน 72 ไบต์</small>
+        </div>
+        <div class="settings-actions">
+          <button class="btn btn-primary" type="button" id="changePasswordBtn" style="width:auto;">เปลี่ยนรหัสผ่าน</button>
+        </div>
+        <div id="passwordMsg"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ปุ่มจดด่วนลอย -->
+  <button class="quick-jot-fab" type="button" id="quickJotFab" title="จดด่วน" aria-label="เปิดหน้าต่างจดด่วน">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+</div>
+
+<!-- ===================== Task modal ===================== -->
+<div class="modal-backdrop hidden" id="taskModalBackdrop">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="taskModalTitle" tabindex="-1">
+    <h2 id="taskModalTitle">เพิ่มงานใหม่</h2>
+    <form id="taskForm">
+      <input type="hidden" id="taskId">
+      <div class="field">
+        <label for="taskTitle">ชื่องาน</label>
+        <input id="taskTitle" type="text" maxlength="200" required>
+      </div>
+      <div class="field">
+        <label for="taskDesc">รายละเอียด (ถ้ามี)</label>
+        <textarea id="taskDesc" class="field-textarea" maxlength="5000"></textarea>
+      </div>
+      <div class="field">
+        <label for="taskQuadrantTrigger">หมวดหมู่</label>
+        <select id="taskQuadrant" class="field-select">
+          <option value="1">Q1 · ทำทันที (ด่วน+สำคัญ)</option>
+          <option value="2">Q2 · วางแผนทำ (สำคัญ ไม่ด่วน)</option>
+          <option value="3">Q3 · มอบหมาย (ด่วน ไม่สำคัญ)</option>
+          <option value="4">Q4 · ทำทีหลัง (ไม่ด่วน ไม่สำคัญ)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="taskDueDate">กำหนดวัน-เวลา (ถ้ามี)</label>
+        <div class="datetime-input">
+          <input
+            id="taskDueDate"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            maxlength="10"
+            placeholder="dd/mm/yyyy"
+            aria-label="วันที่ รูปแบบวัน เดือน ปี"
+          >
+          <span class="datetime-separator" aria-hidden="true">—</span>
+          <input id="taskDueTime" type="time" step="60" aria-label="เวลา">
+          <span class="date-picker-trigger" title="เลือกวันที่จากปฏิทิน">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" />
+            </svg>
+            <input id="taskDuePicker" type="date" aria-label="เลือกวันที่จากปฏิทิน">
+          </span>
+        </div>
+        <small class="hint">รูปแบบ วัน/เดือน/ปี (dd/mm/yyyy)</small>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-danger-ghost hidden" id="deleteTaskBtn">ลบงาน</button>
+        <button type="button" class="btn btn-secondary" id="cancelTaskBtn">ยกเลิก</button>
+        <button type="submit" class="btn btn-primary" id="saveTaskBtn" style="width:auto;">บันทึก</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== Quick jot modal ===================== -->
+<div class="modal-backdrop hidden" id="jotModalBackdrop">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="jotModalTitle" tabindex="-1">
+    <h2 id="jotModalTitle">จดด่วน</h2>
+    <textarea id="jotInput" class="field-textarea" maxlength="5000" style="min-height:100px;" placeholder="พิมพ์แล้วกดบันทึกได้เลย..." autofocus></textarea>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" id="cancelJotBtn">ยกเลิก</button>
+      <button type="button" class="btn btn-primary" id="saveJotBtn" style="width:auto;">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="./js/app.js"></script>
+</body>
+</html>

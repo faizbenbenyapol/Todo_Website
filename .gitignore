@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.local
+docker-compose.override.yml
+data/*
+!data/.gitkeep
+*.log
+.DS_Store
+coverage/

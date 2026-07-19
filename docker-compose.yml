@@ -1,0 +1,27 @@
+services:
+  eisenhower-board:
+    build: .
+    container_name: eisenhower-board
+    restart: unless-stopped
+    init: true
+    ports:
+      - "127.0.0.1:${HOST_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      SESSION_SECRET: "${SESSION_SECRET:?กรุณากำหนด SESSION_SECRET ในไฟล์ .env}"
+      APP_ENCRYPTION_KEY: "${APP_ENCRYPTION_KEY:?กรุณากำหนด APP_ENCRYPTION_KEY ในไฟล์ .env}"
+      SETUP_TOKEN: "${SETUP_TOKEN:-}"
+      TRUST_PROXY: "${TRUST_PROXY:-true}"
+      COOKIE_SECURE: "${COOKIE_SECURE:-true}"
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+      GOOGLE_ALLOWED_EMAILS: "${GOOGLE_ALLOWED_EMAILS:-}"
+      GOOGLE_ALLOW_FIRST_USER: "${GOOGLE_ALLOW_FIRST_USER:-false}"
+      TZ: Asia/Bangkok
+    volumes:
+      - ./data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    security_opt:
+      - no-new-privileges:true

@@ -1,0 +1,14 @@
+node_modules
+.env
+.env.*
+!.env.example
+docker-compose.override.yml
+data/*
+!data/.gitkeep
+.git
+.agents
+.codex
+*.log
+npm-debug.log*
+Dockerfile*
+README.md
