@@ -246,7 +246,7 @@
 
     state.themePreference = safePreference;
     document.documentElement.dataset.theme = resolvedTheme;
-    el('themeColorMeta').setAttribute('content', resolvedTheme === 'dark' ? '#242522' : '#E8E7E2');
+    el('themeColorMeta').setAttribute('content', resolvedTheme === 'dark' ? '#0B0C10' : '#F6F6FA');
 
     try { window.localStorage.setItem(THEME_STORAGE_KEY, safePreference); } catch { /* private mode */ }
 
