@@ -79,6 +79,30 @@ function isoDateValue(value, label = 'วันและเวลา', options =
   return date.toISOString();
 }
 
+function dateValue(value, label = 'วันที่', options = {}) {
+  if (value === undefined) {
+    if (options.optional) return undefined;
+    throw new ValidationError('กรุณาระบุ' + label);
+  }
+  if (value === null || value === '') {
+    if (options.required) throw new ValidationError('กรุณาระบุ' + label);
+    return null;
+  }
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new ValidationError(label + 'ต้องอยู่ในรูปแบบ YYYY-MM-DD');
+  }
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year
+    || date.getUTCMonth() !== month - 1
+    || date.getUTCDate() !== day
+  ) {
+    throw new ValidationError(label + 'ไม่ถูกต้อง');
+  }
+  return value;
+}
+
 function timeValue(value, label = 'เวลา') {
   if (typeof value !== 'string' || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)) {
     throw new ValidationError(`${label}ต้องอยู่ในรูปแบบ HH:mm`);
@@ -106,6 +130,7 @@ module.exports = {
   integerValue,
   positiveId,
   isoDateValue,
+  dateValue,
   timeValue,
   passwordValue,
 };

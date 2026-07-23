@@ -26,7 +26,7 @@ router.post('/', (req, res) => {
   const title = stringValue(body.title, 'ชื่องาน', { required: true, min: 1, max: 200 });
   const description = stringValue(body.description, 'รายละเอียด', { max: 5000 }) ?? '';
   const quadrant = integerValue(body.quadrant, 'หมวดหมู่', { allowed: [1, 2, 3, 4] });
-  const dueDate = isoDateValue(body.due_date, 'กำหนดวันและเวลา', { optional: true }) ?? null;
+  const dueDate = isoDateValue(body.due_date, 'กำหนดวันที่', { optional: true }) ?? null;
 
   const create = db.transaction(() => {
     const maxPos = db.prepare(`
@@ -59,7 +59,7 @@ router.put('/:id', (req, res) => {
     : stringValue(body.title, 'ชื่องาน', { required: true, min: 1, max: 200 });
   const description = stringValue(body.description, 'รายละเอียด', { max: 5000 });
   const quadrant = integerValue(body.quadrant, 'หมวดหมู่', { optional: true, allowed: [1, 2, 3, 4] });
-  const dueDate = isoDateValue(body.due_date, 'กำหนดวันและเวลา', { optional: true });
+  const dueDate = isoDateValue(body.due_date, 'กำหนดวันที่', { optional: true });
   const completed = booleanValue(body.completed, 'สถานะเสร็จสิ้น', { optional: true });
   const position = integerValue(body.position, 'ลำดับงาน', { optional: true, min: 0, max: 1000000 });
 

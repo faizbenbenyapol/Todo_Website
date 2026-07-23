@@ -47,6 +47,21 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    plan_name TEXT NOT NULL DEFAULT '',
+    price TEXT NOT NULL DEFAULT '',
+    renewal_date TEXT NOT NULL,
+    reminder_days INTEGER NOT NULL DEFAULT 7,
+    notes TEXT NOT NULL DEFAULT '',
+    notified INTEGER NOT NULL DEFAULT 0,
+    notification_claimed_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS settings (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     telegram_bot_token TEXT DEFAULT '',
@@ -96,6 +111,9 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS notes_user_id_desc
   ON notes(user_id, id DESC);
+
+  CREATE INDEX IF NOT EXISTS subscriptions_due_pending
+  ON subscriptions(user_id, notified, renewal_date);
 `);
 
 module.exports = db;

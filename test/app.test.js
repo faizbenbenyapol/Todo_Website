@@ -17,7 +17,11 @@ process.env.TRUST_PROXY = 'false';
 
 const { startServer } = require('../server');
 const db = require('../src/db');
-const { buildDailySummary, escapeTelegramHtml } = require('../src/services/scheduler');
+const {
+  buildDailySummary,
+  escapeTelegramHtml,
+  daysUntilDate,
+} = require('../src/services/scheduler');
 
 function createClient(baseUrl) {
   let cookie = '';
@@ -96,6 +100,37 @@ test('API integration, security, validation and session invalidation', async (t)
   const taskId = result.data.id;
   assert.equal(result.data.due_date, '2026-07-20T03:00:00.000Z');
 
+  result = await owner.request('POST', '/api/subscriptions', {
+    name: 'Netflix',
+    plan_name: 'Premium',
+    price: '419 บาท/เดือน',
+    renewal_date: '2026-12-31',
+    reminder_days: 7,
+    notes: 'ใช้บัญชีครอบครัว',
+  });
+  assert.equal(result.response.status, 201);
+  const subscriptionId = result.data.id;
+  assert.equal(result.data.name, 'Netflix');
+  assert.equal(result.data.renewal_date, '2026-12-31');
+  assert.equal(result.data.reminder_days, 7);
+
+  result = await owner.request('POST', '/api/subscriptions', {
+    name: 'Invalid date',
+    renewal_date: '2026-02-30',
+  });
+  assert.equal(result.response.status, 400);
+
+  result = await owner.request('PUT', '/api/subscriptions/' + subscriptionId, {
+    renewal_date: '2027-01-15',
+    reminder_days: 14,
+  });
+  assert.equal(result.response.status, 200);
+  assert.equal(result.data.renewal_date, '2027-01-15');
+  assert.equal(result.data.reminder_days, 14);
+
+  result = await owner.request('DELETE', '/api/subscriptions/' + subscriptionId);
+  assert.equal(result.response.status, 200);
+
   result = await owner.request('PUT', `/api/tasks/${taskId}`, { completed: 'false' });
   assert.equal(result.response.status, 400);
   result = await owner.request('PUT', `/api/tasks/${taskId}`, { completed: false });
@@ -165,4 +200,11 @@ test('API integration, security, validation and session invalidation', async (t)
     due_date: '2026-07-20T03:00:00.000Z',
   }));
   assert.ok(buildDailySummary(manyTasks).length <= 3900);
+});
+
+test('subscription date countdown uses the Bangkok calendar date', () => {
+  const now = new Date('2026-07-22T12:00:00+07:00');
+  assert.equal(daysUntilDate('2026-07-22', now), 0);
+  assert.equal(daysUntilDate('2026-07-29', now), 7);
+  assert.equal(daysUntilDate('2026-07-21', now), -1);
 });

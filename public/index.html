@@ -112,6 +112,10 @@
       <span class="nav-label">จดด่วน</span>
       <span class="nav-badge" id="sidebarNoteCount">0</span>
     </button>
+    <button class="nav-item" type="button" data-view="subscription" aria-label="Subscription">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/></svg>
+      <span class="nav-label">Subscription</span>
+    </button>
     <button class="nav-item" type="button" data-view="settings" aria-label="ตั้งค่า">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6V21a2 2 0 11-4 0v-.2a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.6-1H3a2 2 0 110-4h.2a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.6V3a2 2 0 114 0v.2a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.6 1H21a2 2 0 110 4h-.2a1.7 1.7 0 00-1.5 1z"/></svg>
       <span class="nav-label">ตั้งค่า</span>
@@ -121,7 +125,6 @@
 
     <div class="sidebar-user">
       <div class="sidebar-profile">
-        <div class="sidebar-avatar" id="sidebarAvatar">·</div>
         <div>
           <div class="who" id="sidebarUsername">·</div>
           <div class="sidebar-profile-label">Personal workspace</div>
@@ -139,19 +142,27 @@
     <!-- ---------- Dashboard view ---------- -->
     <section id="view-dashboard" class="view active">
       <div class="topbar dashboard-topbar">
-        <div>
+        <div class="dashboard-heading-copy">
           <div class="page-eyebrow">Eisenhower workspace</div>
           <h1>แดชบอร์ด</h1>
+          <p class="dashboard-subtitle">จัดลำดับงานตามความสำคัญ แล้วโฟกัสทีละเรื่อง</p>
         </div>
-        <div class="date-pill">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
-          <span id="todayLabel">—</span>
+        <div class="dashboard-tools">
+          <div class="dashboard-pending">
+            <span>งานที่ยังไม่เสร็จ</span>
+            <strong id="dashboardPendingCount">0</strong>
+            <small>รายการ</small>
+          </div>
+          <div class="date-pill">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+            <span id="todayLabel">—</span>
+          </div>
         </div>
       </div>
 
       <div class="matrix-axes">
-        <div class="axis-label axis-top-left">← ด่วน</div>
-        <div class="axis-label axis-top-right">ไม่ด่วน →</div>
+        <div class="axis-label axis-top-left">ด่วน</div>
+        <div class="axis-label axis-top-right">ไม่ด่วน</div>
         <div class="axis-label axis-side"><span>สำคัญ</span><span>ไม่สำคัญ</span></div>
 
         <div class="quad-card" data-q="1">
@@ -162,7 +173,7 @@
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <span class="quad-count" data-count="1">0</span>
-              <button class="quad-add" type="button" data-add-q="1" title="เพิ่มงาน" aria-label="เพิ่มงานในหมวดทำทันที">+</button>
+              <button class="quad-add" type="button" data-add-q="1" title="เพิ่มงาน" aria-label="เพิ่มงานในหมวดทำทันที"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
             </div>
           </div>
           <div class="quad-body" data-list="1"></div>
@@ -176,7 +187,7 @@
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <span class="quad-count" data-count="2">0</span>
-              <button class="quad-add" type="button" data-add-q="2" title="เพิ่มงาน" aria-label="เพิ่มงานในหมวดวางแผนทำ">+</button>
+              <button class="quad-add" type="button" data-add-q="2" title="เพิ่มงาน" aria-label="เพิ่มงานในหมวดวางแผนทำ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
             </div>
           </div>
           <div class="quad-body" data-list="2"></div>
@@ -190,7 +201,7 @@
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <span class="quad-count" data-count="3">0</span>
-              <button class="quad-add" type="button" data-add-q="3" title="เพิ่มงาน" aria-label="เพิ่มงานในหมวดมอบหมาย">+</button>
+              <button class="quad-add" type="button" data-add-q="3" title="เพิ่มงาน" aria-label="เพิ่มงานในหมวดมอบหมาย"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
             </div>
           </div>
           <div class="quad-body" data-list="3"></div>
@@ -204,7 +215,7 @@
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <span class="quad-count" data-count="4">0</span>
-              <button class="quad-add" type="button" data-add-q="4" title="เพิ่มงาน" aria-label="เพิ่มงานในหมวดทำทีหลัง">+</button>
+              <button class="quad-add" type="button" data-add-q="4" title="เพิ่มงาน" aria-label="เพิ่มงานในหมวดทำทีหลัง"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
             </div>
           </div>
           <div class="quad-body" data-list="4"></div>
@@ -313,7 +324,7 @@
         <div id="settingsMsg"></div>
 
         <div class="bot-instructions">
-          วิธีสร้างบอท: เปิดแชทกับ <code>@BotFather</code> ใน Telegram → พิมพ์ <code>/newbot</code> → ตั้งชื่อบอท → รับ Token มาใส่ในช่องด้านบน<br>
+          วิธีสร้างบอท: เปิดแชทกับ <code>@BotFather</code> ใน Telegram แล้วพิมพ์ <code>/newbot</code> จากนั้นตั้งชื่อบอทและนำ Token มาใส่ในช่องด้านบน<br>
           วิธีหา Chat ID: เปิดแชทกับ <code>@userinfobot</code> แล้วพิมพ์อะไรก็ได้ บอทจะบอก Chat ID ของคุณ
         </div>
       </div>
@@ -354,6 +365,57 @@
       </div>
     </section>
 
+    <!-- ---------- Subscription view ---------- -->
+    <section id="view-subscription" class="view subscription-view">
+      <div class="topbar subscription-topbar">
+        <div class="subscription-heading">
+          <span class="subscription-title-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/></svg>
+          </span>
+          <div>
+            <div class="page-eyebrow">Workspace plan</div>
+            <h1>Subscription</h1>
+            <p class="subscription-subtitle">รวมบริการที่สมัครไว้ให้ดูง่าย และไม่พลาดวันต่ออายุ</p>
+          </div>
+        </div>
+        <button class="btn btn-primary subscription-add-button" type="button" id="addSubscriptionBtn" style="width:auto;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          <span>เพิ่ม Subscription</span>
+        </button>
+      </div>
+
+      <div class="subscription-summary">
+        <div class="subscription-stat subscription-stat-total">
+          <span>Subscription ทั้งหมด</span>
+          <strong id="subscriptionTotal">0</strong>
+          <small>รายการที่บันทึกไว้</small>
+        </div>
+        <div class="subscription-stat subscription-stat-soon">
+          <span>ใกล้หมดอายุ</span>
+          <strong id="subscriptionExpiring">0</strong>
+          <small>ถึงกำหนดตามการแจ้งเตือน</small>
+        </div>
+        <div class="subscription-stat subscription-stat-expired">
+          <span>หมดอายุแล้ว</span>
+          <strong id="subscriptionExpired">0</strong>
+          <small>ควรตรวจสอบรายการ</small>
+        </div>
+      </div>
+
+      <p class="subscription-helper">ระบบจะคำนวณวันคงเหลือจากวันต่ออายุ และแจ้งเตือนผ่าน Telegram ตามจำนวนวันที่ตั้งไว้</p>
+      <div class="subscription-list-shell">
+        <div class="subscription-list-heading">
+          <div>
+            <h2>รายการที่บันทึกไว้</h2>
+            <span>จัดเรียงตามวันต่ออายุอัตโนมัติ</span>
+          </div>
+          <span class="subscription-list-key"><i></i>สถานะปัจจุบัน</span>
+        </div>
+        <div id="subscriptionList" class="subscriptions-list"></div>
+        <div id="subscriptionEmpty" class="quad-empty subscription-empty hidden">ยังไม่มี Subscription ลองเพิ่มบริการที่สมัครไว้ดูสิ</div>
+      </div>
+    </section>
+
   </main>
 
   <!-- ปุ่มจดด่วนลอย -->
@@ -386,7 +448,7 @@
         </select>
       </div>
       <div class="field">
-        <label for="taskDueDate">กำหนดวัน-เวลา (ถ้ามี)</label>
+        <label for="taskDueDate">กำหนดวันที่ (ถ้ามี)</label>
         <div class="datetime-input">
           <input
             id="taskDueDate"
@@ -397,8 +459,6 @@
             placeholder="dd/mm/yyyy"
             aria-label="วันที่ รูปแบบวัน เดือน ปี"
           >
-          <span class="datetime-separator" aria-hidden="true">—</span>
-          <input id="taskDueTime" type="time" step="60" aria-label="เวลา">
           <span class="date-picker-trigger" title="เลือกวันที่จากปฏิทิน">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" />
@@ -426,6 +486,50 @@
       <button type="button" class="btn btn-secondary" id="cancelJotBtn">ยกเลิก</button>
       <button type="button" class="btn btn-primary" id="saveJotBtn" style="width:auto;">บันทึก</button>
     </div>
+  </div>
+</div>
+
+<!-- ===================== Subscription modal ===================== -->
+<div class="modal-backdrop hidden" id="subscriptionModalBackdrop">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="subscriptionModalTitle" tabindex="-1">
+    <h2 id="subscriptionModalTitle">เพิ่ม Subscription</h2>
+    <form id="subscriptionForm">
+      <div class="field">
+        <label for="subscriptionName">ชื่อบริการ</label>
+        <input id="subscriptionName" type="text" maxlength="200" placeholder="เช่น Netflix, Canva, iCloud" required>
+      </div>
+      <div class="field">
+        <label for="subscriptionPlan">ชื่อแพ็กเกจ (ถ้ามี)</label>
+        <input id="subscriptionPlan" type="text" maxlength="200" placeholder="เช่น Premium, 200 GB">
+      </div>
+      <div class="field">
+        <label for="subscriptionPrice">ราคา (ถ้ามี)</label>
+        <input id="subscriptionPrice" type="text" maxlength="50" placeholder="เช่น 399 บาท/เดือน">
+      </div>
+      <div class="field">
+        <label for="subscriptionRenewalDate">วันต่ออายุ / วันหมดอายุ</label>
+        <input id="subscriptionRenewalDate" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" required>
+      </div>
+      <div class="field">
+        <label for="subscriptionReminderDays">แจ้งเตือนล่วงหน้า</label>
+        <select id="subscriptionReminderDays" class="field-select">
+          <option value="1">1 วัน</option>
+          <option value="3">3 วัน</option>
+          <option value="7" selected>7 วัน</option>
+          <option value="14">14 วัน</option>
+          <option value="30">30 วัน</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="subscriptionNotes">โน้ต (ถ้ามี)</label>
+        <textarea id="subscriptionNotes" class="field-textarea" maxlength="5000" placeholder="เช่น ใช้อีเมลไหนสมัคร หรือยกเลิกก่อนวันต่ออายุ"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-danger-ghost hidden" id="deleteSubscriptionBtn">ลบรายการ</button>
+        <button type="button" class="btn btn-secondary" id="cancelSubscriptionBtn">ยกเลิก</button>
+        <button type="submit" class="btn btn-primary" id="saveSubscriptionBtn" style="width:auto;">บันทึก</button>
+      </div>
+    </form>
   </div>
 </div>
 

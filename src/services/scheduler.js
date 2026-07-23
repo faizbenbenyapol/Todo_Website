@@ -19,12 +19,11 @@ function escapeTelegramHtml(value) {
     .replace(/>/g, '&gt;');
 }
 
-function formatThaiDateTime(iso) {
+function formatThaiDate(iso) {
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return 'ไม่ระบุเวลา';
+  if (Number.isNaN(date.getTime())) return 'ไม่ระบุวันที่';
   return date.toLocaleString('th-TH', {
     dateStyle: 'medium',
-    timeStyle: 'short',
     timeZone: 'Asia/Bangkok',
   });
 }
@@ -96,7 +95,7 @@ async function checkDueReminders(now = new Date()) {
       const text = [
         `⏰ <b>${heading}</b>`,
         escapeTelegramHtml(task.title),
-        `กำหนด: ${escapeTelegramHtml(formatThaiDateTime(task.due_date))}`,
+        `กำหนด: ${escapeTelegramHtml(formatThaiDate(task.due_date))}`,
         `หมวด: ${escapeTelegramHtml(QUADRANT_LABELS[task.quadrant] || '')}`,
       ].join('\n');
       const result = await sendTelegramMessage(
@@ -112,6 +111,72 @@ async function checkDueReminders(now = new Date()) {
         db.prepare('UPDATE tasks SET notification_claimed_at = NULL WHERE id = ? AND user_id = ?')
           .run(task.id, settings.user_id);
         console.warn(`[scheduler] ส่งแจ้งเตือนงาน ${task.id} ไม่สำเร็จ: ${result.error}`);
+      }
+    }
+  }
+}
+
+function daysUntilDate(dateValue, now = new Date()) {
+  const today = bangkokClock(now).date;
+  const targetMs = Date.parse(dateValue + 'T00:00:00Z');
+  const todayMs = Date.parse(today + 'T00:00:00Z');
+  if (Number.isNaN(targetMs) || Number.isNaN(todayMs)) return null;
+  return Math.round((targetMs - todayMs) / 86400000);
+}
+
+async function checkSubscriptionReminders(now = new Date()) {
+  const users = db.prepare(
+    "SELECT * FROM settings WHERE telegram_bot_token != '' AND telegram_chat_id != ''",
+  ).all();
+  const claimTime = now.toISOString();
+  const staleBefore = new Date(now.getTime() - CLAIM_TIMEOUT_MS).toISOString();
+
+  for (const settings of users) {
+    let token;
+    try {
+      token = settingsToken(settings);
+    } catch (error) {
+      console.error('[scheduler] ถอดรหัส Telegram token ของผู้ใช้ ' + settings.user_id + ' ไม่สำเร็จ:', error.message);
+      continue;
+    }
+
+    const subscriptions = db.prepare(
+      'SELECT * FROM subscriptions WHERE user_id = ? AND notified = 0 AND (notification_claimed_at IS NULL OR notification_claimed_at < ?) ORDER BY renewal_date, id',
+    ).all(settings.user_id, staleBefore);
+
+    for (const subscription of subscriptions) {
+      const days = daysUntilDate(subscription.renewal_date, now);
+      if (days === null || days > subscription.reminder_days) continue;
+
+      const claimed = db.prepare(
+        'UPDATE subscriptions SET notification_claimed_at = ? WHERE id = ? AND user_id = ? AND notified = 0 AND (notification_claimed_at IS NULL OR notification_claimed_at < ?)',
+      ).run(claimTime, subscription.id, settings.user_id, staleBefore);
+      if (claimed.changes !== 1) continue;
+
+      const status = days < 0
+        ? 'หมดอายุแล้ว ' + Math.abs(days) + ' วัน'
+        : days === 0 ? 'หมดอายุวันนี้' : 'เหลืออีก ' + days + ' วัน';
+      const text = [
+        '🔔 <b>Subscription ใกล้หมดอายุ</b>',
+        escapeTelegramHtml(subscription.name),
+        subscription.plan_name ? 'แพ็กเกจ: ' + escapeTelegramHtml(subscription.plan_name) : '',
+        '<b>สถานะ: ' + escapeTelegramHtml(status) + '</b>',
+        'วันต่ออายุ: ' + escapeTelegramHtml(formatThaiDate(subscription.renewal_date)),
+        subscription.price ? 'ราคา: ' + escapeTelegramHtml(subscription.price) : '',
+      ].filter(Boolean).join('\n');
+      const result = await sendTelegramMessage(
+        token,
+        settings.telegram_chat_id,
+        text,
+      );
+      if (result.ok) {
+        db.prepare(
+          'UPDATE subscriptions SET notified = 1, notification_claimed_at = NULL WHERE id = ? AND user_id = ?',
+        ).run(subscription.id, settings.user_id);
+      } else {
+        db.prepare('UPDATE subscriptions SET notification_claimed_at = NULL WHERE id = ? AND user_id = ?')
+          .run(subscription.id, settings.user_id);
+        console.warn('[scheduler] ส่งแจ้งเตือน Subscription ' + subscription.id + ' ไม่สำเร็จ: ' + result.error);
       }
     }
   }
@@ -133,7 +198,7 @@ function buildDailySummary(tasks) {
     }
 
     for (const task of items) {
-      const due = task.due_date ? ` (กำหนด ${escapeTelegramHtml(formatThaiDateTime(task.due_date))})` : '';
+      const due = task.due_date ? ` (กำหนด ${escapeTelegramHtml(formatThaiDate(task.due_date))})` : '';
       const line = `• ${escapeTelegramHtml(task.title)}${due}\n`;
       if (text.length + line.length < MAX_TELEGRAM_TEXT - 80) text += line;
       else omitted += 1;
@@ -208,6 +273,7 @@ function startScheduler() {
     running = true;
     try {
       const now = new Date();
+      await checkSubscriptionReminders(now);
       await checkDueReminders(now);
       await checkDailySummaries(now);
     } catch (error) {
@@ -222,6 +288,8 @@ function startScheduler() {
 
 module.exports = {
   startScheduler,
+  checkSubscriptionReminders,
+  daysUntilDate,
   checkDueReminders,
   checkDailySummaries,
   buildDailySummary,

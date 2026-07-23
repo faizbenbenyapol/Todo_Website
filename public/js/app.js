@@ -2,12 +2,14 @@
   const QUADRANTS = [1, 2, 3, 4];
   let state = {
     tasks: [],
+    subscriptions: [],
     notes: [],
     notesNextCursor: null,
     notesTotal: 0,
     settings: null,
     themePreference: 'system',
     editingTaskId: null,
+    editingSubscriptionId: null,
     authenticated: false,
     googleConfig: null,
     googleReady: false,
@@ -49,6 +51,7 @@
   function handleSessionExpired() {
     state.authenticated = false;
     state.tasks = [];
+    state.subscriptions = [];
     state.notes = [];
     state.notesNextCursor = null;
     state.notesTotal = 0;
@@ -125,7 +128,7 @@
       label.textContent = option.textContent;
       const check = document.createElement('span');
       check.className = 'custom-select-option-check';
-      check.textContent = '✓';
+      check.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>';
       check.setAttribute('aria-hidden', 'true');
       button.append(label, check);
 
@@ -267,7 +270,8 @@
   function setSidebarIdentity(username) {
     const safeName = String(username || 'ผู้ใช้งาน');
     el('sidebarUsername').textContent = safeName;
-    el('sidebarAvatar').textContent = getInitials(safeName);
+    const avatar = el('sidebarAvatar');
+    if (avatar) avatar.textContent = getInitials(safeName);
   }
 
   function setButtonLoading(button, loading) {
@@ -452,16 +456,13 @@
 
   function setTaskDueValue(dueDate) {
     const dateInput = el('taskDueDate');
-    const timeInput = el('taskDueTime');
     const picker = el('taskDuePicker');
 
     dateInput.setCustomValidity('');
-    timeInput.setCustomValidity('');
 
     const date = new Date(dueDate);
     if (!dueDate || Number.isNaN(date.getTime())) {
       dateInput.value = '';
-      timeInput.value = '';
       picker.value = '';
       return;
     }
@@ -470,26 +471,16 @@
     const month = pad2(date.getMonth() + 1);
     const day = pad2(date.getDate());
     dateInput.value = `${day}/${month}/${year}`;
-    timeInput.value = `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
     picker.value = `${year}-${month}-${day}`;
   }
 
   function getTaskDueValue() {
     const dateInput = el('taskDueDate');
-    const timeInput = el('taskDueTime');
     const dateText = dateInput.value.trim();
-    const timeText = timeInput.value;
 
     dateInput.setCustomValidity('');
-    timeInput.setCustomValidity('');
 
-    if (!dateText && !timeText) return null;
-
-    if (!dateText) {
-      dateInput.setCustomValidity('กรุณาระบุวันที่');
-      dateInput.reportValidity();
-      return undefined;
-    }
+    if (!dateText) return null;
 
     const parsed = parseDisplayDate(dateText);
     if (!parsed) {
@@ -498,23 +489,23 @@
       return undefined;
     }
 
-    if (!timeText) {
-      timeInput.setCustomValidity('กรุณาระบุเวลา');
-      timeInput.reportValidity();
-      return undefined;
-    }
-
     dateInput.value = parsed.display;
     el('taskDuePicker').value = parsed.iso;
     const [year, month, day] = parsed.iso.split('-').map(Number);
-    const [hour, minute] = timeText.split(':').map(Number);
-    return new Date(year, month - 1, day, hour, minute, 0, 0).toISOString();
+    // A date-only deadline means the end of that local day.
+    return new Date(year, month - 1, day, 23, 59, 59, 999).toISOString();
   }
 
-  function formatDueDateTime(dueDate) {
+  function formatDueDate(dueDate) {
     const due = new Date(dueDate);
     if (Number.isNaN(due.getTime())) return dueDate;
-    return `${pad2(due.getDate())}/${pad2(due.getMonth() + 1)}/${due.getFullYear()} ${pad2(due.getHours())}:${pad2(due.getMinutes())}`;
+    return `${pad2(due.getDate())}/${pad2(due.getMonth() + 1)}/${due.getFullYear()}`;
+  }
+
+  function formatDisplayDateTime(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return `${formatDueDate(date)} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
   }
 
   // ---------------- auth screen ----------------
@@ -612,24 +603,25 @@
     requestAnimationFrame(() => appScreen.classList.add('app-ready'));
     setSidebarIdentity(username);
 
-    el('todayLabel').textContent = new Date().toLocaleDateString('th-TH', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    });
+    el('todayLabel').textContent = formatDueDate(new Date());
 
     const googleRefresh = refreshGoogleAuth().catch((error) => {
       console.warn(error);
       el('googleConnectionStatus').textContent = 'โหลดบริการ Google ไม่สำเร็จ แต่ยังใช้ชื่อผู้ใช้และรหัสผ่านได้ตามปกติ';
       return null;
     });
-    const results = await Promise.allSettled([loadTasks(), loadNotes(), loadSettings(), googleRefresh]);
-    const essentialErrors = results.slice(0, 3).filter((result) => result.status === 'rejected');
+    const results = await Promise.allSettled([
+      loadTasks(), loadNotes(), loadSubscriptions(), loadSettings(), googleRefresh,
+    ]);
+    const essentialErrors = results.slice(0, 4).filter((result) => result.status === 'rejected');
     if (results[0].status === 'rejected') state.tasks = [];
     if (results[1].status === 'rejected') {
       state.notes = [];
       state.notesNextCursor = null;
       state.notesTotal = 0;
     }
-    if (results[2].status === 'rejected') {
+    if (results[2].status === 'rejected') state.subscriptions = [];
+    if (results[3].status === 'rejected') {
       state.settings = {
         telegram_bot_configured: false,
         telegram_chat_id: '',
@@ -643,6 +635,7 @@
       state.googleConfig.email = sessionInfo.email || state.googleConfig.email || '';
     }
     renderMatrix();
+    renderSubscriptions();
     renderNotes();
     renderSettings();
     if (state.googleConfig) updateGoogleConnectionUi();
@@ -674,7 +667,7 @@
     if (!dueDate) return null;
     const due = new Date(dueDate);
     const now = new Date();
-    const label = formatDueDateTime(dueDate);
+    const label = formatDueDate(dueDate);
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfDueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
 
@@ -686,6 +679,8 @@
   function updateSidebarTaskCount() {
     const pending = state.tasks.filter((task) => !task.completed).length;
     el('sidebarTaskCount').textContent = pending;
+    const dashboardPending = el('dashboardPendingCount');
+    if (dashboardPending) dashboardPending.textContent = pending;
   }
 
   function renderMatrix() {
@@ -757,7 +752,7 @@
     if (badge) {
       const due = document.createElement('span');
       due.className = 'task-due ' + badge.cls;
-      due.textContent = '⏰ ' + badge.label;
+      due.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg><span>' + badge.label + '</span>';
       main.appendChild(due);
     }
 
@@ -770,7 +765,7 @@
     del.type = 'button';
     del.title = 'ลบ';
     del.setAttribute('aria-label', `ลบงาน ${task.title}`);
-    del.innerHTML = '&times;';
+    del.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 11v6M14 11v6M9 7V4h6v3m-9 0 1 13h10l1-13"/></svg>';
     del.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (!confirm('ลบงานนี้เลยไหม?')) return;
@@ -842,8 +837,6 @@
     el('taskDuePicker').value = parsed.iso;
   });
 
-  el('taskDueTime').addEventListener('input', (e) => e.target.setCustomValidity(''));
-
   el('taskDuePicker').addEventListener('change', (e) => {
     if (!e.target.value) return;
     const [year, month, day] = e.target.value.split('-');
@@ -898,6 +891,267 @@
     }
   });
 
+  // ---------------- subscriptions ----------------
+
+  async function loadSubscriptions() {
+    state.subscriptions = await api('GET', '/api/subscriptions');
+  }
+
+  function localDateFromValue(value) {
+    const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    if (
+      date.getFullYear() !== Number(match[1])
+      || date.getMonth() !== Number(match[2]) - 1
+      || date.getDate() !== Number(match[3])
+    ) return null;
+    return date;
+  }
+
+  function subscriptionDaysLeft(renewalDate) {
+    const target = localDateFromValue(renewalDate);
+    if (!target) return null;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((target.getTime() - today.getTime()) / 86400000);
+  }
+
+  function formatSubscriptionDate(renewalDate) {
+    const date = localDateFromValue(renewalDate);
+    if (!date) return renewalDate || 'ไม่ระบุวันที่';
+    return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`;
+  }
+
+  function subscriptionDateParts(renewalDate) {
+    const date = localDateFromValue(renewalDate);
+    if (!date) return { day: '--', month: 'ไม่ระบุ', year: '' };
+    return {
+      day: new Intl.DateTimeFormat('th-TH', { day: '2-digit' }).format(date),
+      month: new Intl.DateTimeFormat('th-TH', { month: 'short' }).format(date).replace('.', ''),
+      year: new Intl.DateTimeFormat('th-TH', { year: 'numeric' }).format(date),
+    };
+  }
+
+  function subscriptionStatus(subscription) {
+    const days = subscriptionDaysLeft(subscription.renewal_date);
+    if (days === null) return { days: null, label: 'วันที่ไม่ถูกต้อง', cls: 'expired' };
+    if (days < 0) return { days, label: 'หมดอายุแล้ว ' + Math.abs(days) + ' วัน', cls: 'expired' };
+    if (days === 0) return { days, label: 'หมดอายุวันนี้', cls: 'today' };
+    if (days <= Number(subscription.reminder_days)) {
+      return { days, label: 'เหลืออีก ' + days + ' วัน', cls: 'soon' };
+    }
+    return { days, label: 'เหลืออีก ' + days + ' วัน', cls: '' };
+  }
+
+  function renderSubscriptions() {
+    const list = el('subscriptionList');
+    const subscriptions = [...state.subscriptions].sort((a, b) => (
+      String(a.renewal_date || '').localeCompare(String(b.renewal_date || ''))
+    ));
+    const statuses = subscriptions.map((subscription) => ({
+      subscription,
+      status: subscriptionStatus(subscription),
+    }));
+    const expiring = statuses.filter(({ subscription, status }) => (
+      status.days !== null
+      && status.days >= 0
+      && status.days <= Number(subscription.reminder_days)
+    )).length;
+    const expired = statuses.filter(({ status }) => status.days !== null && status.days < 0).length;
+
+    el('subscriptionTotal').textContent = subscriptions.length;
+    el('subscriptionExpiring').textContent = expiring;
+    el('subscriptionExpired').textContent = expired;
+    list.innerHTML = '';
+    el('subscriptionEmpty').classList.toggle('hidden', subscriptions.length > 0);
+    if (subscriptions.length === 0) return;
+
+    statuses.forEach(({ subscription, status }) => {
+      const item = document.createElement('div');
+      item.className = 'subscription-item' + (status.cls ? ' ' + status.cls : '');
+
+      const dateBlock = document.createElement('div');
+      dateBlock.className = 'subscription-date-block';
+      const dateFull = document.createElement('span');
+      dateFull.className = 'subscription-date-full';
+      dateFull.textContent = formatSubscriptionDate(subscription.renewal_date);
+      dateBlock.appendChild(dateFull);
+
+      const identity = document.createElement('div');
+      identity.className = 'subscription-identity';
+      identity.appendChild(dateBlock);
+      item.appendChild(identity);
+
+      const main = document.createElement('div');
+      main.className = 'subscription-item-main';
+      const heading = document.createElement('div');
+      heading.className = 'subscription-item-heading';
+      const name = document.createElement('strong');
+      name.className = 'subscription-item-name';
+      name.textContent = subscription.name;
+      heading.appendChild(name);
+      if (subscription.plan_name) {
+        const plan = document.createElement('span');
+        plan.className = 'subscription-item-plan';
+        plan.textContent = subscription.plan_name;
+        heading.appendChild(plan);
+      }
+      main.appendChild(heading);
+
+      const meta = document.createElement('div');
+      meta.className = 'subscription-item-meta';
+      const renewal = document.createElement('span');
+      renewal.className = 'subscription-meta-entry subscription-meta-renewal';
+      renewal.textContent = 'ต่ออายุ ' + formatSubscriptionDate(subscription.renewal_date);
+      meta.appendChild(renewal);
+      if (subscription.price) {
+        const price = document.createElement('span');
+        price.className = 'subscription-meta-entry subscription-meta-price';
+        price.textContent = subscription.price;
+        meta.appendChild(price);
+      }
+      main.appendChild(meta);
+      if (subscription.notes) {
+        const notes = document.createElement('div');
+        notes.className = 'subscription-item-notes';
+        notes.textContent = subscription.notes;
+        main.appendChild(notes);
+      }
+
+      const side = document.createElement('div');
+      side.className = 'subscription-item-side';
+      const statusBadge = document.createElement('span');
+      statusBadge.className = 'subscription-status' + (status.cls ? ' ' + status.cls : '');
+      statusBadge.textContent = status.label;
+      side.appendChild(statusBadge);
+
+      const actions = document.createElement('div');
+      actions.className = 'subscription-item-actions';
+      const edit = document.createElement('button');
+      edit.className = 'icon-btn';
+      edit.type = 'button';
+      edit.title = 'แก้ไข Subscription';
+      edit.setAttribute('aria-label', 'แก้ไข Subscription ' + subscription.name);
+      edit.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m4 16-.7 4.7L8 20l11.3-11.3a2.1 2.1 0 0 0-3-3L5 17Z"/><path d="m14.8 6.8 2.4 2.4"/></svg>';
+      edit.addEventListener('click', () => openSubscriptionModal(subscription));
+      const remove = document.createElement('button');
+      remove.className = 'icon-btn';
+      remove.type = 'button';
+      remove.title = 'ลบ Subscription';
+      remove.setAttribute('aria-label', 'ลบ Subscription ' + subscription.name);
+      remove.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 7h14M10 11v6M14 11v6M9 7V4h6v3m-9 0 1 13h10l1-13"/></svg>';
+      remove.addEventListener('click', async () => {
+        if (!confirm('ลบ Subscription นี้เลยไหม?')) return;
+        setButtonLoading(remove, true);
+        try {
+          await api('DELETE', '/api/subscriptions/' + subscription.id);
+          state.subscriptions = state.subscriptions.filter((item) => item.id !== subscription.id);
+          renderSubscriptions();
+        } catch (error) {
+          showToast(error.message, true);
+          setButtonLoading(remove, false);
+        }
+      });
+      actions.append(edit, remove);
+      side.appendChild(actions);
+
+      item.append(main, side);
+      list.appendChild(item);
+    });
+  }
+
+  function openSubscriptionModal(subscription) {
+    state.modalReturnFocus = document.activeElement;
+    state.editingSubscriptionId = subscription ? subscription.id : null;
+    el('subscriptionModalTitle').textContent = subscription ? 'แก้ไข Subscription' : 'เพิ่ม Subscription';
+    el('subscriptionName').value = subscription ? subscription.name : '';
+    el('subscriptionPlan').value = subscription ? (subscription.plan_name || '') : '';
+    el('subscriptionPrice').value = subscription ? (subscription.price || '') : '';
+    el('subscriptionRenewalDate').value = subscription ? formatDueDate(subscription.renewal_date) : '';
+    el('subscriptionReminderDays').value = String(subscription ? subscription.reminder_days : 7);
+    el('subscriptionNotes').value = subscription ? (subscription.notes || '') : '';
+    el('deleteSubscriptionBtn').classList.toggle('hidden', !subscription);
+    el('subscriptionModalBackdrop').classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    el('subscriptionName').focus();
+  }
+
+  function closeSubscriptionModal() {
+    el('subscriptionModalBackdrop').classList.add('hidden');
+    document.body.classList.remove('modal-open');
+    state.editingSubscriptionId = null;
+    if (state.modalReturnFocus && document.contains(state.modalReturnFocus)) state.modalReturnFocus.focus();
+    state.modalReturnFocus = null;
+  }
+
+  el('addSubscriptionBtn').addEventListener('click', () => openSubscriptionModal(null));
+  el('cancelSubscriptionBtn').addEventListener('click', closeSubscriptionModal);
+  el('subscriptionRenewalDate').addEventListener('input', (event) => {
+    event.target.value = formatDateInput(event.target.value);
+    event.target.setCustomValidity('');
+  });
+  el('subscriptionModalBackdrop').addEventListener('click', (event) => {
+    if (event.target === el('subscriptionModalBackdrop')) closeSubscriptionModal();
+  });
+
+  el('subscriptionForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const renewalInput = el('subscriptionRenewalDate');
+    const parsedRenewal = parseDisplayDate(renewalInput.value);
+    renewalInput.setCustomValidity('');
+    if (!parsedRenewal) {
+      renewalInput.setCustomValidity('กรุณาระบุวันที่ในรูปแบบ dd/mm/yyyy');
+      renewalInput.reportValidity();
+      return;
+    }
+    const payload = {
+      name: el('subscriptionName').value,
+      plan_name: el('subscriptionPlan').value,
+      price: el('subscriptionPrice').value,
+      renewal_date: parsedRenewal.iso,
+      reminder_days: Number(el('subscriptionReminderDays').value),
+      notes: el('subscriptionNotes').value,
+    };
+    const button = el('saveSubscriptionBtn');
+    setButtonLoading(button, true);
+    try {
+      if (state.editingSubscriptionId) {
+        const updated = await api('PUT', '/api/subscriptions/' + state.editingSubscriptionId, payload);
+        const index = state.subscriptions.findIndex((item) => item.id === updated.id);
+        if (index >= 0) state.subscriptions[index] = updated;
+      } else {
+        const created = await api('POST', '/api/subscriptions', payload);
+        state.subscriptions.push(created);
+      }
+      renderSubscriptions();
+      closeSubscriptionModal();
+      showToast('บันทึก Subscription แล้ว');
+    } catch (error) {
+      showToast(error.message, true);
+    } finally {
+      setButtonLoading(button, false);
+    }
+  });
+
+  el('deleteSubscriptionBtn').addEventListener('click', async () => {
+    if (!state.editingSubscriptionId) return;
+    if (!confirm('ลบ Subscription นี้เลยไหม?')) return;
+    const button = el('deleteSubscriptionBtn');
+    setButtonLoading(button, true);
+    try {
+      await api('DELETE', '/api/subscriptions/' + state.editingSubscriptionId);
+      state.subscriptions = state.subscriptions.filter((item) => item.id !== state.editingSubscriptionId);
+      renderSubscriptions();
+      closeSubscriptionModal();
+      showToast('ลบ Subscription แล้ว');
+    } catch (error) {
+      showToast(error.message, true);
+    } finally {
+      setButtonLoading(button, false);
+    }
+  });
+
   // ---------------- notes ----------------
 
   async function loadNotes(append = false) {
@@ -931,16 +1185,14 @@
       text.textContent = note.content;
       const time = document.createElement('div');
       time.className = 'note-time';
-      time.textContent = new Date(note.created_at.replace(' ', 'T') + 'Z').toLocaleString('th-TH', {
-        dateStyle: 'medium', timeStyle: 'short',
-      });
+      time.textContent = formatDisplayDateTime(note.created_at.replace(' ', 'T') + 'Z');
       left.appendChild(text);
       left.appendChild(time);
 
       const del = document.createElement('button');
       del.className = 'icon-btn';
       del.type = 'button';
-      del.innerHTML = '&times;';
+      del.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 11v6M14 11v6M9 7V4h6v3m-9 0 1 13h10l1-13"/></svg>';
       del.title = 'ลบ';
       del.setAttribute('aria-label', 'ลบบันทึกด่วน');
       del.addEventListener('click', async () => {
@@ -1014,13 +1266,18 @@
     if (e.target === el('jotModalBackdrop')) closeJotModal();
   });
   document.addEventListener('keydown', (event) => {
-    const activeBackdrop = [el('taskModalBackdrop'), el('jotModalBackdrop')]
+    const activeBackdrop = [
+      el('taskModalBackdrop'),
+      el('jotModalBackdrop'),
+      el('subscriptionModalBackdrop'),
+    ]
       .find((backdrop) => !backdrop.classList.contains('hidden'));
     if (!activeBackdrop) return;
     if (event.key === 'Escape') {
       event.preventDefault();
       if (activeBackdrop === el('taskModalBackdrop')) closeTaskModal();
-      else closeJotModal();
+      else if (activeBackdrop === el('jotModalBackdrop')) closeJotModal();
+      else closeSubscriptionModal();
       return;
     }
     if (event.key !== 'Tab') return;
@@ -1049,7 +1306,7 @@
       state.notesTotal += 1;
       renderNotes();
       closeJotModal();
-      showToast('จดด่วนแล้ว ✓');
+      showToast('จดด่วนแล้ว');
     } catch (err) {
       showToast(err.message, true);
     } finally {
@@ -1119,7 +1376,7 @@
       state.settings = await api('PUT', '/api/settings', settingsPayload());
       renderSettings();
       await api('POST', '/api/settings/test-telegram');
-      showToast('ส่งข้อความทดสอบสำเร็จ ✓ เช็ค Telegram ได้เลย');
+      showToast('ส่งข้อความทดสอบสำเร็จ เช็ค Telegram ได้เลย');
     } catch (err) {
       showToast(err.message, true);
     } finally {

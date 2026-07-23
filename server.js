@@ -7,6 +7,7 @@ const SqliteSessionStore = require('./src/sessionStore');
 const authRoutes = require('./src/routes/auth');
 const taskRoutes = require('./src/routes/tasks');
 const noteRoutes = require('./src/routes/notes');
+const subscriptionRoutes = require('./src/routes/subscriptions');
 const settingsRoutes = require('./src/routes/settings');
 const { startScheduler } = require('./src/services/scheduler');
 
@@ -80,6 +81,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api', authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/notes', noteRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/settings', settingsRoutes);
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'ไม่พบ API ที่เรียก' }));
