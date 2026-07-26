@@ -79,6 +79,98 @@
   --shadow-lg: 0 24px 56px rgba(0, 0, 0, 0.5);
 }
 
+/* ---------- Muted, low-saturation light themes (เน้นสบายตา ไม่ฉูดฉาด) ---------- */
+
+:root[data-theme="sakura"] {
+  --ink: #2E2024;
+  --paper: #FAF6F7;
+  --surface: #FFFFFF;
+  --surface-soft: #F3EAEC;
+  --surface-highlight: #EAD5DA;
+  --line: #E8DADD;
+  --fog: #8B6E74;
+  --sidebar: #FFFFFF;
+  --action: #A8607A;
+  --action-ink: #FFFFFF;
+  --q2: #A8607A;
+  --q2-bg: #EAD5DA;
+}
+
+:root[data-theme="mint"] {
+  --ink: #212A22;
+  --paper: #F5F7F5;
+  --surface: #FFFFFF;
+  --surface-soft: #E9EEE9;
+  --surface-highlight: #D8E3D8;
+  --line: #DCE4DC;
+  --fog: #6C786C;
+  --sidebar: #FFFFFF;
+  --action: #5F7A5C;
+  --action-ink: #FFFFFF;
+  --q2: #5F7A5C;
+  --q2-bg: #D8E3D8;
+}
+
+:root[data-theme="sky"] {
+  --ink: #212730;
+  --paper: #F5F7F9;
+  --surface: #FFFFFF;
+  --surface-soft: #E8ECF0;
+  --surface-highlight: #D6DFE6;
+  --line: #DCE3E9;
+  --fog: #67757F;
+  --sidebar: #FFFFFF;
+  --action: #55738F;
+  --action-ink: #FFFFFF;
+  --q2: #55738F;
+  --q2-bg: #D6DFE6;
+}
+
+:root[data-theme="lavender"] {
+  --ink: #262330;
+  --paper: #F6F5F9;
+  --surface: #FFFFFF;
+  --surface-soft: #EAE7F0;
+  --surface-highlight: #DAD4E8;
+  --line: #E0DCEB;
+  --fog: #726C82;
+  --sidebar: #FFFFFF;
+  --action: #7B6B9E;
+  --action-ink: #FFFFFF;
+  --q2: #7B6B9E;
+  --q2-bg: #DAD4E8;
+}
+
+:root[data-theme="peach"] {
+  --ink: #2E2620;
+  --paper: #F9F6F3;
+  --surface: #FFFFFF;
+  --surface-soft: #F0E7DF;
+  --surface-highlight: #E4D2C2;
+  --line: #E8DCD0;
+  --fog: #85715F;
+  --sidebar: #FFFFFF;
+  --action: #9C5C3D;
+  --action-ink: #FFFFFF;
+  --q2: #9C5C3D;
+  --q2-bg: #E4D2C2;
+}
+
+:root[data-theme="sand"] {
+  --ink: #2A2720;
+  --paper: #F8F6F1;
+  --surface: #FFFFFF;
+  --surface-soft: #EFEAE0;
+  --surface-highlight: #E3DAC7;
+  --line: #E7E1D2;
+  --fog: #7C7461;
+  --sidebar: #FFFFFF;
+  --action: #7D6C4C;
+  --action-ink: #FFFFFF;
+  --q2: #7D6C4C;
+  --q2-bg: #E3DAC7;
+}
+
 * { box-sizing: border-box; }
 
 html, body {
@@ -1496,6 +1588,12 @@ textarea.field-textarea {
 .theme-dark i { color: #9A9FB0; background: #15161D; }
 .theme-system i:first-child { color: #6D7286; background: #F0F1F6; }
 .theme-system i:last-child { color: #9A9FB0; background: #15161D; }
+.theme-sakura i { color: #A8607A; background: #FAF6F7; }
+.theme-mint i { color: #5F7A5C; background: #F5F7F5; }
+.theme-sky i { color: #55738F; background: #F5F7F9; }
+.theme-lavender i { color: #7B6B9E; background: #F6F5F9; }
+.theme-peach i { color: #9C5C3D; background: #F9F6F3; }
+.theme-sand i { color: #7D6C4C; background: #F8F6F1; }
 
 .theme-option strong,
 .theme-option small {
@@ -1682,7 +1780,15 @@ textarea.field-textarea {
 
 .subscription-identity { min-width: 0; }
 
-.subscription-date-block { display: flex; flex-direction: column; }
+.subscription-date-block { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+
+.subscription-date-weekday {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--fog);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
 
 .subscription-date-full {
   font-family: var(--font-mono);
@@ -1819,6 +1925,48 @@ textarea.field-textarea {
 
 .modal-actions .btn { width: auto; }
 .modal-actions .btn-danger-ghost { margin-right: auto; }
+
+/* ---------- Confirm dialog ---------- */
+
+.confirm-dialog { max-width: 380px; text-align: center; }
+
+.confirm-dialog-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: var(--q1-bg);
+  color: var(--danger);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: confirm-icon-pop 0.25s ease both;
+}
+
+.confirm-dialog-icon svg { width: 28px; height: 28px; }
+
+.confirm-dialog h2 { margin: 0 0 8px; }
+
+.confirm-dialog-text {
+  margin: 0;
+  color: var(--fog);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.confirm-dialog-actions { justify-content: center; margin-top: 22px; }
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+  width: auto;
+}
+.btn-danger:hover { filter: brightness(1.08); }
+
+@keyframes confirm-icon-pop {
+  from { transform: scale(0.55); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
 
 /* ---------- Quick jot floating button ---------- */
 

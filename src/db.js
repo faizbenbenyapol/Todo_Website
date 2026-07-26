@@ -67,6 +67,7 @@ db.exec(`
     telegram_bot_token TEXT DEFAULT '',
     telegram_chat_id TEXT DEFAULT '',
     notify_before_minutes INTEGER DEFAULT 60,
+    subscription_notify_enabled INTEGER DEFAULT 1,
     daily_summary_enabled INTEGER DEFAULT 0,
     daily_summary_time TEXT DEFAULT '08:00',
     daily_summary_last_sent TEXT DEFAULT '',
@@ -97,6 +98,7 @@ function ensureColumn(table, column, sql) {
 ensureColumn('tasks', 'notification_claimed_at', 'ALTER TABLE tasks ADD COLUMN notification_claimed_at TEXT');
 ensureColumn('settings', 'daily_summary_claimed_for', "ALTER TABLE settings ADD COLUMN daily_summary_claimed_for TEXT DEFAULT ''");
 ensureColumn('settings', 'daily_summary_claimed_at', 'ALTER TABLE settings ADD COLUMN daily_summary_claimed_at TEXT');
+ensureColumn('settings', 'subscription_notify_enabled', 'ALTER TABLE settings ADD COLUMN subscription_notify_enabled INTEGER DEFAULT 1');
 
 db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_unique

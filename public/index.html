@@ -271,12 +271,36 @@
             <span class="theme-preview theme-dark"><i></i></span>
             <strong>มืด</strong><small>สบายตาในที่มืด</small>
           </button>
+          <button class="theme-option" type="button" data-theme-value="sakura">
+            <span class="theme-preview theme-sakura"><i></i></span>
+            <strong>ซากุระ</strong><small>ชมพูฝุ่นหม่นตา</small>
+          </button>
+          <button class="theme-option" type="button" data-theme-value="mint">
+            <span class="theme-preview theme-mint"><i></i></span>
+            <strong>มินต์</strong><small>เขียวเซจสงบตา</small>
+          </button>
+          <button class="theme-option" type="button" data-theme-value="sky">
+            <span class="theme-preview theme-sky"><i></i></span>
+            <strong>ท้องฟ้า</strong><small>ฟ้าหม่นผ่อนคลาย</small>
+          </button>
+          <button class="theme-option" type="button" data-theme-value="lavender">
+            <span class="theme-preview theme-lavender"><i></i></span>
+            <strong>ลาเวนเดอร์</strong><small>ม่วงหม่นนุ่มนวล</small>
+          </button>
+          <button class="theme-option" type="button" data-theme-value="peach">
+            <span class="theme-preview theme-peach"><i></i></span>
+            <strong>พีช</strong><small>ดินเผาอุ่นหม่น</small>
+          </button>
+          <button class="theme-option" type="button" data-theme-value="sand">
+            <span class="theme-preview theme-sand"><i></i></span>
+            <strong>ทราย</strong><small>น้ำตาลทรายหม่นสงบ</small>
+          </button>
         </div>
       </div>
 
       <div class="settings-section">
         <h2>แจ้งเตือนผ่าน Telegram</h2>
-        <p class="desc">รับการแจ้งเตือนเมื่อใกล้ถึงกำหนดงาน และสรุปงานประจำวัน</p>
+        <p class="desc">รับการแจ้งเตือนเมื่อใกล้ถึงกำหนดงาน, Subscription ใกล้หมดอายุ และสรุปงานประจำวัน</p>
 
         <div class="field">
           <label for="botToken">Telegram Bot Token</label>
@@ -300,6 +324,14 @@
             <option value="180">3 ชั่วโมง</option>
             <option value="1440">1 วัน</option>
           </select>
+        </div>
+
+        <div class="settings-row">
+          <div>
+            <div class="row-label">แจ้งเตือน Subscription ใกล้หมดอายุ</div>
+            <div class="row-hint">เตือนตามจำนวนวันที่ตั้งไว้ในแต่ละรายการ</div>
+          </div>
+          <button class="toggle" type="button" id="subscriptionNotifyToggle" aria-label="เปิดหรือปิดแจ้งเตือน Subscription" aria-pressed="false"></button>
         </div>
 
         <div class="settings-row">
@@ -508,7 +540,25 @@
       </div>
       <div class="field">
         <label for="subscriptionRenewalDate">วันต่ออายุ / วันหมดอายุ</label>
-        <input id="subscriptionRenewalDate" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" required>
+        <div class="datetime-input">
+          <input
+            id="subscriptionRenewalDate"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            maxlength="10"
+            placeholder="dd/mm/yyyy"
+            aria-label="วันที่ รูปแบบวัน เดือน ปี"
+            required
+          >
+          <span class="date-picker-trigger" title="เลือกวันที่จากปฏิทิน">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" />
+            </svg>
+            <input id="subscriptionRenewalPicker" type="date" aria-label="เลือกวันที่จากปฏิทิน">
+          </span>
+        </div>
+        <small class="hint">รูปแบบ วัน/เดือน/ปี (dd/mm/yyyy) — เลือกจากปฏิทินแล้วระบบจะใส่ชื่อวันให้อัตโนมัติ</small>
       </div>
       <div class="field">
         <label for="subscriptionReminderDays">แจ้งเตือนล่วงหน้า</label>
@@ -530,6 +580,24 @@
         <button type="submit" class="btn btn-primary" id="saveSubscriptionBtn" style="width:auto;">บันทึก</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ===================== Confirm dialog ===================== -->
+<div class="modal-backdrop hidden" id="confirmDialogBackdrop">
+  <div class="modal confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmDialogTitle" aria-describedby="confirmDialogText" tabindex="-1">
+    <div class="confirm-dialog-icon" id="confirmDialogIcon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M12 9v4M12 16.5h.01" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <h2 id="confirmDialogTitle">ยืนยันการทำรายการ</h2>
+    <p class="confirm-dialog-text" id="confirmDialogText"></p>
+    <div class="modal-actions confirm-dialog-actions">
+      <button type="button" class="btn btn-secondary" id="confirmDialogCancelBtn">ยกเลิก</button>
+      <button type="button" class="btn btn-danger" id="confirmDialogConfirmBtn">ยืนยัน</button>
+    </div>
   </div>
 </div>
 

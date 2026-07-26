@@ -50,6 +50,7 @@ function publicSettings(settings) {
     ...settings,
     telegram_bot_token: '',
     telegram_bot_configured: Boolean(token),
+    subscription_notify_enabled: Boolean(settings.subscription_notify_enabled),
     daily_summary_enabled: Boolean(settings.daily_summary_enabled),
   };
 }
@@ -79,6 +80,9 @@ router.put('/', (req, res) => {
     optional: true,
     allowed: [15, 30, 60, 180, 1440],
   });
+  const subscriptionNotifyEnabled = booleanValue(
+    body.subscription_notify_enabled, 'แจ้งเตือน Subscription', { optional: true },
+  );
   const dailyEnabled = booleanValue(body.daily_summary_enabled, 'สรุปงานประจำวัน', { optional: true });
   const dailyTime = body.daily_summary_time === undefined
     ? undefined
@@ -87,12 +91,13 @@ router.put('/', (req, res) => {
   db.prepare(`
     INSERT INTO settings (
       user_id, telegram_bot_token, telegram_chat_id,
-      notify_before_minutes, daily_summary_enabled, daily_summary_time
-    ) VALUES (?, ?, ?, ?, ?, ?)
+      notify_before_minutes, subscription_notify_enabled, daily_summary_enabled, daily_summary_time
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(user_id) DO UPDATE SET
       telegram_bot_token = excluded.telegram_bot_token,
       telegram_chat_id = excluded.telegram_chat_id,
       notify_before_minutes = excluded.notify_before_minutes,
+      subscription_notify_enabled = excluded.subscription_notify_enabled,
       daily_summary_enabled = excluded.daily_summary_enabled,
       daily_summary_time = excluded.daily_summary_time
   `).run(
@@ -100,6 +105,9 @@ router.put('/', (req, res) => {
     storedToken,
     chatId === undefined ? current.telegram_chat_id : chatId,
     notifyMinutes === undefined ? current.notify_before_minutes : notifyMinutes,
+    subscriptionNotifyEnabled === undefined
+      ? current.subscription_notify_enabled
+      : (subscriptionNotifyEnabled ? 1 : 0),
     dailyEnabled === undefined ? current.daily_summary_enabled : (dailyEnabled ? 1 : 0),
     dailyTime === undefined ? current.daily_summary_time : dailyTime,
   );

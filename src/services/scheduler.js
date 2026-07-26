@@ -126,7 +126,7 @@ function daysUntilDate(dateValue, now = new Date()) {
 
 async function checkSubscriptionReminders(now = new Date()) {
   const users = db.prepare(
-    "SELECT * FROM settings WHERE telegram_bot_token != '' AND telegram_chat_id != ''",
+    "SELECT * FROM settings WHERE telegram_bot_token != '' AND telegram_chat_id != '' AND subscription_notify_enabled = 1",
   ).all();
   const claimTime = now.toISOString();
   const staleBefore = new Date(now.getTime() - CLAIM_TIMEOUT_MS).toISOString();

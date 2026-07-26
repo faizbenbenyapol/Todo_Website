@@ -74,6 +74,45 @@
 
   function el(id) { return document.getElementById(id); }
 
+  function confirmDialog({ title = 'ยืนยันการทำรายการ', text = '', confirmText = 'ยืนยัน', cancelText = 'ยกเลิก', danger = true } = {}) {
+    return new Promise((resolve) => {
+      const backdrop = el('confirmDialogBackdrop');
+      const confirmBtn = el('confirmDialogConfirmBtn');
+      const cancelBtn = el('confirmDialogCancelBtn');
+      const previousFocus = document.activeElement;
+
+      el('confirmDialogTitle').textContent = title;
+      el('confirmDialogText').textContent = text;
+      confirmBtn.textContent = confirmText;
+      cancelBtn.textContent = cancelText;
+      confirmBtn.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
+
+      function cleanup(result) {
+        backdrop.classList.add('hidden');
+        document.body.classList.remove('modal-open');
+        confirmBtn.removeEventListener('click', onConfirm);
+        cancelBtn.removeEventListener('click', onCancel);
+        backdrop.removeEventListener('click', onBackdropClick);
+        document.removeEventListener('keydown', onKeydown);
+        if (previousFocus && document.contains(previousFocus)) previousFocus.focus();
+        resolve(result);
+      }
+      function onConfirm() { cleanup(true); }
+      function onCancel() { cleanup(false); }
+      function onBackdropClick(event) { if (event.target === backdrop) cleanup(false); }
+      function onKeydown(event) { if (event.key === 'Escape') cleanup(false); }
+
+      confirmBtn.addEventListener('click', onConfirm);
+      cancelBtn.addEventListener('click', onCancel);
+      backdrop.addEventListener('click', onBackdropClick);
+      document.addEventListener('keydown', onKeydown);
+
+      backdrop.classList.remove('hidden');
+      document.body.classList.add('modal-open');
+      cancelBtn.focus();
+    });
+  }
+
   function closeCustomSelect(wrapper, restoreFocus = false) {
     if (!wrapper || !wrapper.classList.contains('open')) return;
     wrapper.classList.remove('open');
@@ -227,26 +266,47 @@
 
   const THEME_STORAGE_KEY = 'eisenhower-theme';
   const systemThemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  const THEME_IDS = ['system', 'light', 'dark', 'sakura', 'mint', 'sky', 'lavender', 'peach', 'sand'];
+  const THEME_LABELS = {
+    system: 'ตามระบบ',
+    light: 'สว่าง',
+    dark: 'มืด',
+    sakura: 'ซากุระ',
+    mint: 'มินต์',
+    sky: 'ท้องฟ้า',
+    lavender: 'ลาเวนเดอร์',
+    peach: 'พีช',
+    sand: 'ทราย',
+  };
+  const THEME_META_COLORS = {
+    light: '#F6F6FA',
+    dark: '#0B0C10',
+    sakura: '#FAF6F7',
+    mint: '#F5F7F5',
+    sky: '#F5F7F9',
+    lavender: '#F6F5F9',
+    peach: '#F9F6F3',
+    sand: '#F8F6F1',
+  };
 
   function readThemePreference() {
     try {
       const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
-      return ['system', 'light', 'dark'].includes(saved) ? saved : 'system';
+      return THEME_IDS.includes(saved) ? saved : 'system';
     } catch {
       return 'system';
     }
   }
 
   function applyTheme(preference, announce = false) {
-    const safePreference = ['system', 'light', 'dark'].includes(preference) ? preference : 'system';
+    const safePreference = THEME_IDS.includes(preference) ? preference : 'system';
     const resolvedTheme = safePreference === 'system'
       ? (systemThemeQuery.matches ? 'dark' : 'light')
       : safePreference;
-    const labels = { system: 'ตามระบบ', light: 'สว่าง', dark: 'มืด' };
 
     state.themePreference = safePreference;
     document.documentElement.dataset.theme = resolvedTheme;
-    el('themeColorMeta').setAttribute('content', resolvedTheme === 'dark' ? '#0B0C10' : '#F6F6FA');
+    el('themeColorMeta').setAttribute('content', THEME_META_COLORS[resolvedTheme] || '#F6F6FA');
 
     try { window.localStorage.setItem(THEME_STORAGE_KEY, safePreference); } catch { /* private mode */ }
 
@@ -255,9 +315,9 @@
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', String(active));
     });
-    el('activeThemeLabel').textContent = labels[safePreference];
+    el('activeThemeLabel').textContent = THEME_LABELS[safePreference];
 
-    if (announce) showToast(`เปลี่ยนเป็นธีม${labels[safePreference]}แล้ว`);
+    if (announce) showToast(`เปลี่ยนเป็นธีม${THEME_LABELS[safePreference]}แล้ว`);
   }
 
   function getInitials(username) {
@@ -626,6 +686,7 @@
         telegram_bot_configured: false,
         telegram_chat_id: '',
         notify_before_minutes: 60,
+        subscription_notify_enabled: true,
         daily_summary_enabled: false,
         daily_summary_time: '08:00',
       };
@@ -768,7 +829,12 @@
     del.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 11v6M14 11v6M9 7V4h6v3m-9 0 1 13h10l1-13"/></svg>';
     del.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (!confirm('ลบงานนี้เลยไหม?')) return;
+      const confirmed = await confirmDialog({
+        title: 'ลบงานนี้เลยไหม?',
+        text: 'เมื่อลบแล้วจะไม่สามารถกู้คืนได้',
+        confirmText: 'ลบงาน',
+      });
+      if (!confirmed) return;
       setButtonLoading(del, true);
       try {
         await api('DELETE', `/api/tasks/${task.id}`);
@@ -876,7 +942,12 @@
 
   el('deleteTaskBtn').addEventListener('click', async () => {
     if (!state.editingTaskId) return;
-    if (!confirm('ลบงานนี้เลยไหม?')) return;
+    const confirmed = await confirmDialog({
+      title: 'ลบงานนี้เลยไหม?',
+      text: 'เมื่อลบแล้วจะไม่สามารถกู้คืนได้',
+      confirmText: 'ลบงาน',
+    });
+    if (!confirmed) return;
     const button = el('deleteTaskBtn');
     setButtonLoading(button, true);
     try {
@@ -921,6 +992,12 @@
     const date = localDateFromValue(renewalDate);
     if (!date) return renewalDate || 'ไม่ระบุวันที่';
     return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`;
+  }
+
+  function subscriptionWeekday(renewalDate, style) {
+    const date = localDateFromValue(renewalDate);
+    if (!date) return '';
+    return new Intl.DateTimeFormat('th-TH', { weekday: style }).format(date);
   }
 
   function subscriptionDateParts(renewalDate) {
@@ -973,10 +1050,13 @@
 
       const dateBlock = document.createElement('div');
       dateBlock.className = 'subscription-date-block';
+      const weekdayTag = document.createElement('span');
+      weekdayTag.className = 'subscription-date-weekday';
+      weekdayTag.textContent = subscriptionWeekday(subscription.renewal_date, 'short');
       const dateFull = document.createElement('span');
       dateFull.className = 'subscription-date-full';
       dateFull.textContent = formatSubscriptionDate(subscription.renewal_date);
-      dateBlock.appendChild(dateFull);
+      dateBlock.append(weekdayTag, dateFull);
 
       const identity = document.createElement('div');
       identity.className = 'subscription-identity';
@@ -1003,7 +1083,7 @@
       meta.className = 'subscription-item-meta';
       const renewal = document.createElement('span');
       renewal.className = 'subscription-meta-entry subscription-meta-renewal';
-      renewal.textContent = 'ต่ออายุ ' + formatSubscriptionDate(subscription.renewal_date);
+      renewal.textContent = 'ต่ออายุ ' + subscriptionWeekday(subscription.renewal_date, 'long') + ' ' + formatSubscriptionDate(subscription.renewal_date);
       meta.appendChild(renewal);
       if (subscription.price) {
         const price = document.createElement('span');
@@ -1042,7 +1122,12 @@
       remove.setAttribute('aria-label', 'ลบ Subscription ' + subscription.name);
       remove.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 7h14M10 11v6M14 11v6M9 7V4h6v3m-9 0 1 13h10l1-13"/></svg>';
       remove.addEventListener('click', async () => {
-        if (!confirm('ลบ Subscription นี้เลยไหม?')) return;
+        const confirmed = await confirmDialog({
+          title: 'ลบ Subscription นี้เลยไหม?',
+          text: 'ข้อมูลและการแจ้งเตือนของรายการนี้จะถูกลบไปด้วย',
+          confirmText: 'ลบรายการ',
+        });
+        if (!confirmed) return;
         setButtonLoading(remove, true);
         try {
           await api('DELETE', '/api/subscriptions/' + subscription.id);
@@ -1069,6 +1154,10 @@
     el('subscriptionPlan').value = subscription ? (subscription.plan_name || '') : '';
     el('subscriptionPrice').value = subscription ? (subscription.price || '') : '';
     el('subscriptionRenewalDate').value = subscription ? formatDueDate(subscription.renewal_date) : '';
+    el('subscriptionRenewalDate').setCustomValidity('');
+    el('subscriptionRenewalPicker').value = subscription && localDateFromValue(subscription.renewal_date)
+      ? subscription.renewal_date
+      : '';
     el('subscriptionReminderDays').value = String(subscription ? subscription.reminder_days : 7);
     el('subscriptionNotes').value = subscription ? (subscription.notes || '') : '';
     el('deleteSubscriptionBtn').classList.toggle('hidden', !subscription);
@@ -1090,6 +1179,23 @@
   el('subscriptionRenewalDate').addEventListener('input', (event) => {
     event.target.value = formatDateInput(event.target.value);
     event.target.setCustomValidity('');
+  });
+  el('subscriptionRenewalDate').addEventListener('blur', (event) => {
+    if (!event.target.value) return;
+    const parsed = parseDisplayDate(event.target.value);
+    if (!parsed) {
+      event.target.setCustomValidity('กรุณาระบุวันที่ในรูปแบบ dd/mm/yyyy');
+      return;
+    }
+    event.target.value = parsed.display;
+    event.target.setCustomValidity('');
+    el('subscriptionRenewalPicker').value = parsed.iso;
+  });
+  el('subscriptionRenewalPicker').addEventListener('change', (event) => {
+    if (!event.target.value) return;
+    const [year, month, day] = event.target.value.split('-');
+    el('subscriptionRenewalDate').value = `${day}/${month}/${year}`;
+    el('subscriptionRenewalDate').setCustomValidity('');
   });
   el('subscriptionModalBackdrop').addEventListener('click', (event) => {
     if (event.target === el('subscriptionModalBackdrop')) closeSubscriptionModal();
@@ -1136,7 +1242,12 @@
 
   el('deleteSubscriptionBtn').addEventListener('click', async () => {
     if (!state.editingSubscriptionId) return;
-    if (!confirm('ลบ Subscription นี้เลยไหม?')) return;
+    const confirmed = await confirmDialog({
+      title: 'ลบ Subscription นี้เลยไหม?',
+      text: 'ข้อมูลและการแจ้งเตือนของรายการนี้จะถูกลบไปด้วย',
+      confirmText: 'ลบรายการ',
+    });
+    if (!confirmed) return;
     const button = el('deleteSubscriptionBtn');
     setButtonLoading(button, true);
     try {
@@ -1330,10 +1441,18 @@
     el('chatId').value = s.telegram_chat_id || '';
     el('notifyBefore').value = String(s.notify_before_minutes || 60);
     syncCustomSelect(el('notifyBefore'));
+    el('subscriptionNotifyToggle').classList.toggle('on', !!s.subscription_notify_enabled);
+    el('subscriptionNotifyToggle').setAttribute('aria-pressed', String(!!s.subscription_notify_enabled));
     el('dailySummaryToggle').classList.toggle('on', !!s.daily_summary_enabled);
     el('dailySummaryToggle').setAttribute('aria-pressed', String(!!s.daily_summary_enabled));
     el('dailySummaryTime').value = s.daily_summary_time || '08:00';
   }
+
+  el('subscriptionNotifyToggle').addEventListener('click', () => {
+    const toggle = el('subscriptionNotifyToggle');
+    const active = toggle.classList.toggle('on');
+    toggle.setAttribute('aria-pressed', String(active));
+  });
 
   el('dailySummaryToggle').addEventListener('click', () => {
     const toggle = el('dailySummaryToggle');
@@ -1345,6 +1464,7 @@
     const payload = {
       telegram_chat_id: el('chatId').value.trim(),
       notify_before_minutes: Number(el('notifyBefore').value),
+      subscription_notify_enabled: el('subscriptionNotifyToggle').classList.contains('on'),
       daily_summary_enabled: el('dailySummaryToggle').classList.contains('on'),
       daily_summary_time: el('dailySummaryTime').value,
     };
@@ -1385,7 +1505,12 @@
   });
 
   el('clearTelegramBtn').addEventListener('click', async () => {
-    if (!confirm('ลบ Telegram Bot Token ที่บันทึกไว้หรือไม่?')) return;
+    const confirmed = await confirmDialog({
+      title: 'ลบ Telegram Bot Token?',
+      text: 'ระบบจะหยุดส่งการแจ้งเตือนผ่าน Telegram จนกว่าจะตั้งค่า Token ใหม่',
+      confirmText: 'ลบ Token',
+    });
+    if (!confirmed) return;
     const button = el('clearTelegramBtn');
     setButtonLoading(button, true);
     try {
