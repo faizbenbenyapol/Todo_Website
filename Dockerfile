@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim AS dependencies
+FROM node:25-bookworm-slim AS dependencies
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ RUN apt-get update \
 COPY package*.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
 
-FROM node:20-bookworm-slim
+FROM node:25-bookworm-slim
 
 WORKDIR /app
 
