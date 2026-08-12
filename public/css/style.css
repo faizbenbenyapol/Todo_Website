@@ -446,6 +446,7 @@ textarea.field-textarea {
 }
 .icon-btn:hover { background: var(--surface-soft); color: var(--ink); }
 .icon-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn:disabled { opacity: 0.3; pointer-events: none; }
 
 .form-error {
   background: var(--q1-bg);
@@ -916,6 +917,105 @@ textarea.field-textarea {
   text-transform: uppercase;
 }
 
+.version-badge-wrap {
+  position: relative;
+  padding: 0 10px 14px;
+}
+
+.version-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--fog);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.version-badge:hover { border-color: color-mix(in srgb, var(--ink) 18%, var(--line)); color: var(--ink); }
+.version-badge svg { width: 12px; height: 12px; fill: none; stroke: var(--action); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.version-panel {
+  position: absolute;
+  top: calc(100% - 6px);
+  left: 10px;
+  width: 300px;
+  max-width: calc(100vw - 40px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 60;
+  overflow: hidden;
+  animation: fade-up 0.15s ease both;
+}
+.version-panel.hidden { display: none; }
+
+.version-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.version-panel-head h3 { margin: 0; font-size: 14px; }
+
+.version-panel-body {
+  padding: 14px;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.version-entry-current .version-entry-tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--action);
+}
+
+.version-entry-date {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fog);
+  margin-left: 8px;
+}
+
+.version-entry-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.version-entry-list li { margin-bottom: 4px; }
+
+.version-panel-divider {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 14px 0 10px;
+}
+
+.version-panel-prev-label {
+  font-size: 11px;
+  color: var(--fog);
+  margin-bottom: 8px;
+}
+
+.version-prev-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 12px;
+}
+.version-prev-row .version-entry-tag { color: var(--fog); font-weight: 600; }
+
 .nav-item {
   display: flex;
   align-items: center;
@@ -1066,6 +1166,23 @@ textarea.field-textarea {
   color: var(--fog);
   font-size: 13px;
 }
+
+.archive-open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fog);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.archive-open-btn:hover { border-color: color-mix(in srgb, var(--ink) 18%, var(--line)); color: var(--ink); }
+.archive-open-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 .date-pill {
   display: inline-flex;
@@ -1382,6 +1499,80 @@ textarea.field-textarea {
   font-size: 11px;
   color: var(--fog);
   margin-top: 6px;
+}
+
+/* ---------- Archived tasks modal ---------- */
+
+.modal-wide { max-width: 560px; }
+
+.modal .sub {
+  margin: -12px 0 16px;
+  color: var(--fog);
+  font-size: 12.5px;
+}
+
+.archive-month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 8px 0 14px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.archive-month-label {
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 130px;
+  text-align: center;
+}
+
+.archive-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.archive-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.archive-item-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: line-through;
+  color: var(--fog);
+  word-break: break-word;
+}
+
+.archive-item-time {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fog);
+  margin-top: 4px;
+}
+
+.archive-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.archive-empty {
+  text-align: center;
+  color: var(--fog);
+  font-size: 13px;
+  padding: 30px 10px;
 }
 
 .notes-load-more {

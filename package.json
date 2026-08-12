@@ -1,6 +1,6 @@
 {
   "name": "eisenhower-board",
-  "version": "1.0.0",
+  "version": "0.5.0",
   "description": "จัดการงานด้วย Eisenhower Matrix พร้อมจดด่วนและแจ้งเตือนผ่าน Telegram สำหรับติดตั้งบนเซิร์ฟเวอร์ของคุณเอง",
   "main": "server.js",
   "scripts": {

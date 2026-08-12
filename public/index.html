@@ -102,6 +102,22 @@
       </div>
     </div>
 
+    <div class="version-badge-wrap">
+      <button class="version-badge" type="button" id="versionBadgeBtn" aria-haspopup="dialog" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>
+        <span id="versionBadgeLabel">v0.0.0</span>
+      </button>
+      <div class="version-panel hidden" id="versionPanel" role="dialog" aria-modal="false" aria-labelledby="versionPanelTitle">
+        <div class="version-panel-head">
+          <h3 id="versionPanelTitle">มีอะไรใหม่</h3>
+          <button type="button" class="icon-btn" id="closeVersionPanelBtn" aria-label="ปิด">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+        <div class="version-panel-body" id="versionPanelBody"></div>
+      </div>
+    </div>
+
     <button class="nav-item active" type="button" data-view="dashboard" aria-label="แดชบอร์ด">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>
       <span class="nav-label">แดชบอร์ด</span>
@@ -153,6 +169,10 @@
             <strong id="dashboardPendingCount">0</strong>
             <small>รายการ</small>
           </div>
+          <button class="archive-open-btn" type="button" id="openArchiveBtn" title="งานที่เก็บถาวร" aria-label="ดูงานที่เก็บถาวร">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v3H4z"/><path d="M5 9v11h14V9M10 13h4"/></svg>
+            <span>งานที่เก็บถาวร</span>
+          </button>
           <div class="date-pill">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
             <span id="todayLabel">—</span>
@@ -597,6 +617,27 @@
     <div class="modal-actions confirm-dialog-actions">
       <button type="button" class="btn btn-secondary" id="confirmDialogCancelBtn">ยกเลิก</button>
       <button type="button" class="btn btn-danger" id="confirmDialogConfirmBtn">ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== Archived tasks modal ===================== -->
+<div class="modal-backdrop hidden" id="archiveModalBackdrop">
+  <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="archiveModalTitle" tabindex="-1">
+    <h2 id="archiveModalTitle">งานที่เก็บถาวร</h2>
+    <p class="sub">งานที่เสร็จแล้วและเลือกเก็บไว้ ไม่แสดงในบอร์ดหลัก</p>
+    <div class="archive-month-nav">
+      <button type="button" class="icon-btn" id="archivePrevMonthBtn" title="เดือนก่อนหน้า" aria-label="ดูเดือนก่อนหน้า">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+      <div class="archive-month-label" id="archiveMonthLabel">—</div>
+      <button type="button" class="icon-btn" id="archiveNextMonthBtn" title="เดือนถัดไป" aria-label="ดูเดือนถัดไป">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+    <div class="archive-list" id="archiveList"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" id="closeArchiveBtn">ปิด</button>
     </div>
   </div>
 </div>

@@ -16,7 +16,14 @@ router.use(requireAuth);
 
 router.get('/', (req, res) => {
   const tasks = db.prepare(`
-    SELECT * FROM tasks WHERE user_id = ? ORDER BY quadrant, position, id
+    SELECT * FROM tasks WHERE user_id = ? AND archived = 0 ORDER BY quadrant, position, id
+  `).all(req.session.userId);
+  res.json(tasks);
+});
+
+router.get('/archived', (req, res) => {
+  const tasks = db.prepare(`
+    SELECT * FROM tasks WHERE user_id = ? AND archived = 1 ORDER BY updated_at DESC, id DESC
   `).all(req.session.userId);
   res.json(tasks);
 });
@@ -49,7 +56,7 @@ router.put('/:id', (req, res) => {
   const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ?').get(id, req.session.userId);
   if (!task) return res.status(404).json({ error: 'ไม่พบงานนี้' });
 
-  const allowedFields = ['title', 'description', 'quadrant', 'due_date', 'completed', 'position'];
+  const allowedFields = ['title', 'description', 'quadrant', 'due_date', 'completed', 'position', 'archived'];
   if (!allowedFields.some((field) => Object.prototype.hasOwnProperty.call(body, field))) {
     throw new ValidationError('ไม่มีข้อมูลที่ต้องการแก้ไข');
   }
@@ -62,6 +69,7 @@ router.put('/:id', (req, res) => {
   const dueDate = isoDateValue(body.due_date, 'กำหนดวันที่', { optional: true });
   const completed = booleanValue(body.completed, 'สถานะเสร็จสิ้น', { optional: true });
   const position = integerValue(body.position, 'ลำดับงาน', { optional: true, min: 0, max: 1000000 });
+  const archived = booleanValue(body.archived, 'สถานะเก็บถาวร', { optional: true });
 
   const newTitle = title ?? task.title;
   const newDescription = description ?? task.description;
@@ -69,13 +77,14 @@ router.put('/:id', (req, res) => {
   const newDueDate = dueDate === undefined ? task.due_date : dueDate;
   const newCompleted = completed === undefined ? task.completed : (completed ? 1 : 0);
   const newPosition = position ?? task.position;
+  const newArchived = archived === undefined ? task.archived : (archived ? 1 : 0);
   const dueChanged = dueDate !== undefined && newDueDate !== task.due_date;
   const taskReopened = task.completed === 1 && newCompleted === 0;
   const resetNotification = dueChanged || taskReopened;
 
   db.prepare(`
     UPDATE tasks SET
-      title = ?, description = ?, quadrant = ?, due_date = ?, completed = ?, position = ?,
+      title = ?, description = ?, quadrant = ?, due_date = ?, completed = ?, position = ?, archived = ?,
       notified = ?, notification_claimed_at = NULL, updated_at = datetime('now')
     WHERE id = ? AND user_id = ?
   `).run(
@@ -85,6 +94,7 @@ router.put('/:id', (req, res) => {
     newDueDate,
     newCompleted,
     newPosition,
+    newArchived,
     resetNotification ? 0 : task.notified,
     id,
     req.session.userId,

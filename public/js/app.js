@@ -705,6 +705,102 @@
     }
   }
 
+  // ---------------- version / what's new ----------------
+
+  const CHANGELOG = [
+    {
+      version: '0.5.0',
+      date: '2026-08-12',
+      items: [
+        'งานที่เสร็จแล้วเลือกได้ว่าจะเก็บถาวรหรือลบทิ้ง',
+        'เพิ่มหน้าต่าง "งานที่เก็บถาวร" ดูย้อนหลัง กู้คืน หรือลบถาวรได้',
+        'จัดกลุ่มงานที่เก็บถาวรตามเดือน เลื่อนดูทีละเดือนได้',
+      ],
+    },
+    {
+      version: '0.4.0',
+      date: '2026-07-27',
+      items: [
+        'เพิ่มการแจ้งเตือน Subscription ใกล้หมดอายุผ่าน Telegram',
+        'เพิ่มตัวเลือกวันที่แบบปฏิทิน (date picker) ในฟอร์มงานและ Subscription',
+        'เพิ่มธีมสีนุ่มตาใหม่หลายแบบ',
+      ],
+    },
+    {
+      version: '0.3.0',
+      date: '2026-07-23',
+      items: ['ปรับดีไซน์ทั้งแอปใหม่ในสไตล์ flat/minimal'],
+    },
+    {
+      version: '0.2.0',
+      date: '2026-07-23',
+      items: ['เพิ่มการแจ้งเตือนผ่าน Push Notification และขยายความสามารถจัดการงาน'],
+    },
+    {
+      version: '0.1.0',
+      date: '2026-07-19',
+      items: ['เปิดตัว Eisenhower Board เวอร์ชันแรก จัดการงานด้วยตาราง 4 ช่อง ด่วน/สำคัญ'],
+    },
+  ];
+  const CURRENT_VERSION = CHANGELOG[0];
+
+  function renderVersionPanel() {
+    el('versionBadgeLabel').textContent = `v${CURRENT_VERSION.version}`;
+    const body = el('versionPanelBody');
+    body.innerHTML = '';
+
+    const current = document.createElement('div');
+    current.className = 'version-entry-current';
+    const head = document.createElement('div');
+    head.innerHTML = `<span class="version-entry-tag">v${CURRENT_VERSION.version}</span><span class="version-entry-date">${formatDueDate(CURRENT_VERSION.date)}</span>`;
+    current.appendChild(head);
+    const list = document.createElement('ul');
+    list.className = 'version-entry-list';
+    CURRENT_VERSION.items.forEach((text) => {
+      const li = document.createElement('li');
+      li.textContent = text;
+      list.appendChild(li);
+    });
+    current.appendChild(list);
+    body.appendChild(current);
+
+    const previous = CHANGELOG.slice(1);
+    if (previous.length > 0) {
+      body.appendChild(document.createElement('hr')).className = 'version-panel-divider';
+      const label = document.createElement('div');
+      label.className = 'version-panel-prev-label';
+      label.textContent = 'เวอร์ชันก่อนหน้า';
+      body.appendChild(label);
+      previous.forEach((entry) => {
+        const row = document.createElement('div');
+        row.className = 'version-prev-row';
+        row.innerHTML = `<span class="version-entry-tag">v${entry.version}</span><span class="version-entry-date">${formatDueDate(entry.date)}</span>`;
+        body.appendChild(row);
+      });
+    }
+  }
+
+  function toggleVersionPanel(show) {
+    const panel = el('versionPanel');
+    const open = show === undefined ? panel.classList.contains('hidden') : show;
+    panel.classList.toggle('hidden', !open);
+    el('versionBadgeBtn').setAttribute('aria-expanded', String(open));
+  }
+
+  renderVersionPanel();
+  el('versionBadgeBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleVersionPanel();
+  });
+  el('closeVersionPanelBtn').addEventListener('click', () => toggleVersionPanel(false));
+  document.addEventListener('click', (e) => {
+    const wrap = document.querySelector('.version-badge-wrap');
+    if (wrap && !wrap.contains(e.target)) toggleVersionPanel(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') toggleVersionPanel(false);
+  });
+
   // ---------------- nav ----------------
 
   document.querySelectorAll('.nav-item[data-view]').forEach((btn) => {
@@ -821,6 +917,29 @@
 
     const actions = document.createElement('div');
     actions.className = 'task-actions';
+
+    if (task.completed) {
+      const archive = document.createElement('button');
+      archive.className = 'icon-btn';
+      archive.type = 'button';
+      archive.title = 'เก็บถาวร';
+      archive.setAttribute('aria-label', `เก็บถาวรงาน ${task.title}`);
+      archive.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v3H4z"/><path d="M5 9v11h14V9M10 13h4"/></svg>';
+      archive.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        setButtonLoading(archive, true);
+        try {
+          await api('PUT', `/api/tasks/${task.id}`, { archived: true });
+          state.tasks = state.tasks.filter((t) => t.id !== task.id);
+          renderMatrix();
+        } catch (err) {
+          showToast(err.message, true);
+          setButtonLoading(archive, false);
+        }
+      });
+      actions.appendChild(archive);
+    }
+
     const del = document.createElement('button');
     del.className = 'icon-btn';
     del.type = 'button';
@@ -855,6 +974,170 @@
 
   document.querySelectorAll('.quad-add').forEach((btn) => {
     btn.addEventListener('click', () => openTaskModal(Number(btn.dataset.addQ), null));
+  });
+
+  // ---------------- archived tasks ----------------
+
+  const THAI_MONTHS = [
+    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
+  ];
+
+  state.archiveMonthGroups = [];
+  state.archiveMonthIndex = 0;
+
+  function archivedAtDate(task) {
+    return new Date(task.updated_at.replace(' ', 'T') + 'Z');
+  }
+
+  function groupArchivedByMonth(tasks) {
+    const groups = new Map();
+    tasks.forEach((task) => {
+      const date = archivedAtDate(task);
+      const key = `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`;
+      if (!groups.has(key)) groups.set(key, { key, year: date.getFullYear(), month: date.getMonth(), tasks: [] });
+      groups.get(key).tasks.push(task);
+    });
+    return Array.from(groups.values()).sort((a, b) => (a.key < b.key ? 1 : -1));
+  }
+
+  function renderArchiveMonthNav() {
+    const groups = state.archiveMonthGroups;
+    const hasGroups = groups.length > 0;
+    const current = hasGroups ? groups[state.archiveMonthIndex] : null;
+    el('archiveMonthLabel').textContent = current ? `${THAI_MONTHS[current.month]} ${current.year}` : '—';
+    el('archivePrevMonthBtn').disabled = !hasGroups || state.archiveMonthIndex >= groups.length - 1;
+    el('archiveNextMonthBtn').disabled = !hasGroups || state.archiveMonthIndex <= 0;
+  }
+
+  function renderArchiveList() {
+    const list = el('archiveList');
+    list.innerHTML = '';
+    renderArchiveMonthNav();
+
+    const group = state.archiveMonthGroups[state.archiveMonthIndex];
+    if (!group || group.tasks.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'archive-empty';
+      empty.textContent = 'ยังไม่มีงานที่เก็บถาวร';
+      list.appendChild(empty);
+      return;
+    }
+
+    group.tasks.forEach((task) => {
+      const item = document.createElement('div');
+      item.className = 'archive-item';
+
+      const main = document.createElement('div');
+      const title = document.createElement('div');
+      title.className = 'archive-item-title';
+      title.textContent = task.title;
+      main.appendChild(title);
+      const time = document.createElement('div');
+      time.className = 'archive-item-time';
+      time.textContent = 'เก็บถาวรเมื่อ ' + formatDisplayDateTime(task.updated_at.replace(' ', 'T') + 'Z');
+      main.appendChild(time);
+
+      const actions = document.createElement('div');
+      actions.className = 'archive-item-actions';
+
+      const restore = document.createElement('button');
+      restore.className = 'icon-btn';
+      restore.type = 'button';
+      restore.title = 'กู้คืน';
+      restore.setAttribute('aria-label', `กู้คืนงาน ${task.title}`);
+      restore.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 1 3 6.7"/><path d="M3 12V6m0 6h6"/></svg>';
+      restore.addEventListener('click', async () => {
+        setButtonLoading(restore, true);
+        try {
+          await api('PUT', `/api/tasks/${task.id}`, { archived: false });
+          await loadTasks();
+          renderMatrix();
+          await refreshArchiveModal();
+        } catch (err) {
+          showToast(err.message, true);
+          setButtonLoading(restore, false);
+        }
+      });
+
+      const del = document.createElement('button');
+      del.className = 'icon-btn';
+      del.type = 'button';
+      del.title = 'ลบถาวร';
+      del.setAttribute('aria-label', `ลบถาวรงาน ${task.title}`);
+      del.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 11v6M14 11v6M9 7V4h6v3m-9 0 1 13h10l1-13"/></svg>';
+      del.addEventListener('click', async () => {
+        const confirmed = await confirmDialog({
+          title: 'ลบงานนี้ถาวรเลยไหม?',
+          text: 'เมื่อลบแล้วจะไม่สามารถกู้คืนได้',
+          confirmText: 'ลบถาวร',
+        });
+        if (!confirmed) return;
+        setButtonLoading(del, true);
+        try {
+          await api('DELETE', `/api/tasks/${task.id}`);
+          await refreshArchiveModal();
+        } catch (err) {
+          showToast(err.message, true);
+          setButtonLoading(del, false);
+        }
+      });
+
+      actions.appendChild(restore);
+      actions.appendChild(del);
+      item.appendChild(main);
+      item.appendChild(actions);
+      list.appendChild(item);
+    });
+  }
+
+  async function refreshArchiveModal() {
+    const currentKey = state.archiveMonthGroups[state.archiveMonthIndex]
+      ? state.archiveMonthGroups[state.archiveMonthIndex].key
+      : null;
+    try {
+      const tasks = await api('GET', '/api/tasks/archived');
+      state.archiveMonthGroups = groupArchivedByMonth(tasks);
+    } catch (err) {
+      showToast(err.message, true);
+      state.archiveMonthGroups = [];
+    }
+    const keptIndex = currentKey ? state.archiveMonthGroups.findIndex((g) => g.key === currentKey) : -1;
+    state.archiveMonthIndex = keptIndex >= 0
+      ? keptIndex
+      : Math.min(state.archiveMonthIndex, Math.max(state.archiveMonthGroups.length - 1, 0));
+    renderArchiveList();
+  }
+
+  async function openArchiveModal() {
+    state.modalReturnFocus = document.activeElement;
+    state.archiveMonthIndex = 0;
+    await refreshArchiveModal();
+    el('archiveModalBackdrop').classList.remove('hidden');
+    document.body.classList.add('modal-open');
+  }
+
+  function closeArchiveModal() {
+    el('archiveModalBackdrop').classList.add('hidden');
+    document.body.classList.remove('modal-open');
+    if (state.modalReturnFocus && document.contains(state.modalReturnFocus)) state.modalReturnFocus.focus();
+    state.modalReturnFocus = null;
+  }
+
+  el('openArchiveBtn').addEventListener('click', openArchiveModal);
+  el('closeArchiveBtn').addEventListener('click', closeArchiveModal);
+  el('archiveModalBackdrop').addEventListener('click', (e) => {
+    if (e.target === el('archiveModalBackdrop')) closeArchiveModal();
+  });
+  el('archivePrevMonthBtn').addEventListener('click', () => {
+    if (state.archiveMonthIndex >= state.archiveMonthGroups.length - 1) return;
+    state.archiveMonthIndex += 1;
+    renderArchiveList();
+  });
+  el('archiveNextMonthBtn').addEventListener('click', () => {
+    if (state.archiveMonthIndex <= 0) return;
+    state.archiveMonthIndex -= 1;
+    renderArchiveList();
   });
 
   function openTaskModal(quadrant, task) {

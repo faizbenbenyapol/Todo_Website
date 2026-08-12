@@ -96,6 +96,7 @@ function ensureColumn(table, column, sql) {
 }
 
 ensureColumn('tasks', 'notification_claimed_at', 'ALTER TABLE tasks ADD COLUMN notification_claimed_at TEXT');
+ensureColumn('tasks', 'archived', 'ALTER TABLE tasks ADD COLUMN archived INTEGER NOT NULL DEFAULT 0');
 ensureColumn('settings', 'daily_summary_claimed_for', "ALTER TABLE settings ADD COLUMN daily_summary_claimed_for TEXT DEFAULT ''");
 ensureColumn('settings', 'daily_summary_claimed_at', 'ALTER TABLE settings ADD COLUMN daily_summary_claimed_at TEXT');
 ensureColumn('settings', 'subscription_notify_enabled', 'ALTER TABLE settings ADD COLUMN subscription_notify_enabled INTEGER DEFAULT 1');
