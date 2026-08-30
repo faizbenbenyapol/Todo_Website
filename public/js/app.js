@@ -15,7 +15,15 @@
     googleReady: false,
     googleBusy: false,
     modalReturnFocus: null,
+    filter: { status: 'all', tag: '' },
+    draftTags: [],
+    draftSubtasks: [],
+    subscriptionGroupBy: 'category',
+    taskSourceNoteId: null,
   };
+
+  const FILTER_STORAGE_KEY = 'eisenhower-filter';
+  const SUBSCRIPTION_GROUP_KEY = 'eisenhower-subscription-group';
 
   // ---------------- helpers ----------------
 
@@ -514,9 +522,21 @@
     return parts.join('/');
   }
 
-  function setTaskDueValue(dueDate) {
+  function setDueTimeEnabled(enabled) {
+    const toggle = el('taskHasTimeToggle');
+    toggle.classList.toggle('on', enabled);
+    toggle.setAttribute('aria-pressed', String(enabled));
+    el('taskDueTime').classList.toggle('hidden', !enabled);
+  }
+
+  function isDueTimeEnabled() {
+    return el('taskHasTimeToggle').classList.contains('on');
+  }
+
+  function setTaskDueValue(dueDate, hasTime = false) {
     const dateInput = el('taskDueDate');
     const picker = el('taskDuePicker');
+    const timeInput = el('taskDueTime');
 
     dateInput.setCustomValidity('');
 
@@ -524,6 +544,8 @@
     if (!dueDate || Number.isNaN(date.getTime())) {
       dateInput.value = '';
       picker.value = '';
+      timeInput.value = '09:00';
+      setDueTimeEnabled(false);
       return;
     }
 
@@ -532,6 +554,8 @@
     const day = pad2(date.getDate());
     dateInput.value = `${day}/${month}/${year}`;
     picker.value = `${year}-${month}-${day}`;
+    timeInput.value = hasTime ? `${pad2(date.getHours())}:${pad2(date.getMinutes())}` : '09:00';
+    setDueTimeEnabled(Boolean(hasTime));
   }
 
   function getTaskDueValue() {
@@ -552,6 +576,19 @@
     dateInput.value = parsed.display;
     el('taskDuePicker').value = parsed.iso;
     const [year, month, day] = parsed.iso.split('-').map(Number);
+
+    if (isDueTimeEnabled()) {
+      const timeInput = el('taskDueTime');
+      const time = String(timeInput.value || '').match(/^(\d{2}):(\d{2})$/);
+      if (!time) {
+        timeInput.setCustomValidity('กรุณาระบุเวลาให้ถูกต้อง');
+        timeInput.reportValidity();
+        return undefined;
+      }
+      timeInput.setCustomValidity('');
+      return new Date(year, month - 1, day, Number(time[1]), Number(time[2]), 0, 0).toISOString();
+    }
+
     // A date-only deadline means the end of that local day.
     return new Date(year, month - 1, day, 23, 59, 59, 999).toISOString();
   }
@@ -560,6 +597,14 @@
     const due = new Date(dueDate);
     if (Number.isNaN(due.getTime())) return dueDate;
     return `${pad2(due.getDate())}/${pad2(due.getMonth() + 1)}/${due.getFullYear()}`;
+  }
+
+  function formatTaskDue(task) {
+    if (!task.due_date) return '';
+    const due = new Date(task.due_date);
+    if (Number.isNaN(due.getTime())) return task.due_date;
+    const date = formatDueDate(due);
+    return task.due_has_time ? `${date} ${pad2(due.getHours())}:${pad2(due.getMinutes())}` : date;
   }
 
   function formatDisplayDateTime(value) {
@@ -709,6 +754,30 @@
 
   const CHANGELOG = [
     {
+      version: '0.7.0',
+      date: '2026-08-30',
+      items: [
+        'ลากวางงานข้ามช่องและจัดลำดับได้ รองรับทั้งเมาส์ การลากด้วยนิ้ว และปุ่มลูกศรเมื่อโฟกัสที่ปุ่มจับ',
+        'ปุ่มยืนยันการจ่าย Subscription ที่เลื่อนวันต่ออายุไปรอบถัดไปให้อัตโนมัติ พร้อมเก็บประวัติการจ่าย',
+        'สร้างงานจากบันทึกด่วนได้ในคลิกเดียว',
+        'เพิ่มหน้าสถิติ: งานที่ปิดได้รายวัน งานค้างแยกตามช่อง และค่าใช้จ่าย Subscription',
+        'สำรองข้อมูลอัตโนมัติวันละครั้งลงโฟลเดอร์ data/backups',
+      ],
+    },
+    {
+      version: '0.6.0',
+      date: '2026-08-22',
+      items: [
+        'กรองงานบนบอร์ดตามสถานะ กำหนดส่ง และแท็กได้',
+        'ตั้งเวลาในกำหนดส่ง และตั้งงานประจำที่สร้างรอบถัดไปให้อัตโนมัติ',
+        'เพิ่มแท็กและงานย่อยในแต่ละงาน',
+        'สำรองและกู้คืนข้อมูลทั้งหมดเป็นไฟล์ JSON',
+        'ติดตั้งเป็นแอปบนมือถือได้ และเปิดดูงานได้แม้ออฟไลน์',
+        'Subscription เก็บราคาเป็นตัวเลข พร้อมสกุลเงินและรอบบิล แล้วสรุปยอดรวมต่อเดือนและต่อปีให้',
+        'จัดกลุ่ม Subscription ตามกลุ่มที่ตั้งเอง รอบบิล หรือสถานะ พร้อมยอดรวมของแต่ละกลุ่ม',
+      ],
+    },
+    {
       version: '0.5.0',
       date: '2026-08-12',
       items: [
@@ -811,6 +880,7 @@
       el('view-' + btn.dataset.view).classList.add('active');
       el('quickJotFab').hidden = btn.dataset.view === 'settings';
       if (btn.dataset.view === 'settings') updateGoogleConnectionUi();
+      if (btn.dataset.view === 'stats') loadStats();
     });
   });
 
@@ -820,11 +890,15 @@
     state.tasks = await api('GET', '/api/tasks');
   }
 
-  function dueBadgeInfo(dueDate) {
-    if (!dueDate) return null;
-    const due = new Date(dueDate);
+  function byPosition(a, b) {
+    return (a.position - b.position) || (a.id - b.id);
+  }
+
+  function dueBadgeInfo(task) {
+    if (!task.due_date) return null;
+    const due = new Date(task.due_date);
     const now = new Date();
-    const label = formatDueDate(dueDate);
+    const label = formatTaskDue(task);
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfDueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
 
@@ -832,6 +906,141 @@
     if (startOfDueDay.getTime() === startOfToday.getTime()) return { label, cls: 'today' };
     return { label, cls: '' };
   }
+
+  // ---------------- ตัวกรองงาน ----------------
+
+  const FILTER_LABELS = {
+    all: 'ทั้งหมด',
+    pending: 'ยังไม่เสร็จ',
+    completed: 'เสร็จแล้ว',
+    overdue: 'เลยกำหนด',
+    today: 'ครบกำหนดวันนี้',
+    week: 'ภายใน 7 วัน',
+  };
+
+  function readFilterPreference() {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(FILTER_STORAGE_KEY) || '{}');
+      return {
+        status: FILTER_LABELS[saved.status] ? saved.status : 'all',
+        tag: typeof saved.tag === 'string' ? saved.tag : '',
+      };
+    } catch {
+      return { status: 'all', tag: '' };
+    }
+  }
+
+  function saveFilterPreference() {
+    try {
+      window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(state.filter));
+    } catch { /* โหมดส่วนตัวของเบราว์เซอร์อาจปิดการเขียน */ }
+  }
+
+  function matchesFilter(task) {
+    const { status, tag } = state.filter;
+    if (tag && !(task.tags || []).some((item) => item.toLowerCase() === tag.toLowerCase())) return false;
+    if (status === 'all') return true;
+    if (status === 'pending') return !task.completed;
+    if (status === 'completed') return Boolean(task.completed);
+
+    if (!task.due_date) return false;
+    const due = new Date(task.due_date);
+    if (Number.isNaN(due.getTime())) return false;
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfDueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+
+    if (status === 'overdue') return !task.completed && due < now;
+    if (status === 'today') return startOfDueDay.getTime() === startOfToday.getTime();
+    if (status === 'week') {
+      const weekAhead = startOfToday.getTime() + (7 * 86400000);
+      return startOfDueDay.getTime() >= startOfToday.getTime() && startOfDueDay.getTime() <= weekAhead;
+    }
+    return true;
+  }
+
+  function filterIsActive() {
+    return state.filter.status !== 'all' || Boolean(state.filter.tag);
+  }
+
+  function allTags() {
+    const seen = new Map();
+    state.tasks.forEach((task) => {
+      (task.tags || []).forEach((tag) => {
+        const key = tag.toLowerCase();
+        if (!seen.has(key)) seen.set(key, tag);
+      });
+    });
+    return [...seen.values()].sort((a, b) => a.localeCompare(b, 'th'));
+  }
+
+  function renderTagFilterOptions() {
+    const select = el('taskTagFilter');
+    const tags = allTags();
+    const current = state.filter.tag;
+    select.innerHTML = '';
+    const allOption = document.createElement('option');
+    allOption.value = '';
+    allOption.textContent = 'ทุกแท็ก';
+    select.appendChild(allOption);
+    tags.forEach((tag) => {
+      const option = document.createElement('option');
+      option.value = tag;
+      option.textContent = tag;
+      select.appendChild(option);
+    });
+    // แท็กที่ถูกลบไปแล้วต้องไม่ค้างเป็นตัวกรองที่ไม่มีวันตรงกับงานใด
+    if (current && !tags.some((tag) => tag === current)) state.filter.tag = '';
+    select.value = state.filter.tag;
+
+    const suggestions = el('taskTagSuggestions');
+    suggestions.innerHTML = '';
+    tags.forEach((tag) => {
+      const option = document.createElement('option');
+      option.value = tag;
+      suggestions.appendChild(option);
+    });
+  }
+
+  function renderFilterBar(visibleCount) {
+    document.querySelectorAll('.filter-chip').forEach((chip) => {
+      const active = chip.dataset.filter === state.filter.status;
+      chip.classList.toggle('active', active);
+      chip.setAttribute('aria-pressed', String(active));
+    });
+    el('clearFilterBtn').classList.toggle('hidden', !filterIsActive());
+
+    const summary = el('filterSummary');
+    if (!filterIsActive()) {
+      summary.classList.add('hidden');
+      summary.textContent = '';
+      return;
+    }
+    const parts = [FILTER_LABELS[state.filter.status]];
+    if (state.filter.tag) parts.push(`แท็ก “${state.filter.tag}”`);
+    summary.textContent = `กำลังกรอง: ${parts.join(' · ')} — พบ ${visibleCount} จาก ${state.tasks.length} งาน`;
+    summary.classList.remove('hidden');
+  }
+
+  document.querySelectorAll('.filter-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      state.filter.status = chip.dataset.filter;
+      saveFilterPreference();
+      renderMatrix();
+    });
+  });
+
+  el('taskTagFilter').addEventListener('change', (event) => {
+    state.filter.tag = event.target.value;
+    saveFilterPreference();
+    renderMatrix();
+  });
+
+  el('clearFilterBtn').addEventListener('click', () => {
+    state.filter = { status: 'all', tag: '' };
+    saveFilterPreference();
+    renderMatrix();
+  });
 
   function updateSidebarTaskCount() {
     const pending = state.tasks.filter((task) => !task.completed).length;
@@ -842,10 +1051,13 @@
 
   function renderMatrix() {
     updateSidebarTaskCount();
+    renderTagFilterOptions();
+    const visible = state.tasks.filter(matchesFilter);
     const grouped = new Map(QUADRANTS.map((quadrant) => [quadrant, []]));
-    state.tasks.forEach((task) => grouped.get(task.quadrant)?.push(task));
+    visible.forEach((task) => grouped.get(task.quadrant)?.push(task));
     QUADRANTS.forEach((q) => {
-      const list = grouped.get(q);
+      // เรียงตาม position ทุกครั้ง ไม่พึ่งลำดับใน state.tasks ซึ่งอาจค้างของเดิมหลังลากวางหรือย้ายช่อง
+      const list = grouped.get(q).sort(byPosition);
       const container = document.querySelector(`[data-list="${q}"]`);
       const countEl = document.querySelector(`[data-count="${q}"]`);
       countEl.textContent = list.length;
@@ -854,7 +1066,7 @@
       if (list.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'quad-empty';
-        empty.textContent = 'ยังไม่มีงานในหมวดนี้';
+        empty.textContent = filterIsActive() ? 'ไม่มีงานที่ตรงกับตัวกรอง' : 'ยังไม่มีงานในหมวดนี้';
         container.appendChild(empty);
         return;
       }
@@ -863,11 +1075,40 @@
         container.appendChild(renderTaskCard(task));
       });
     });
+    renderFilterBar(visible.length);
+  }
+
+  const RECUR_LABELS = {
+    daily: 'ทุกวัน',
+    weekly: 'ทุกสัปดาห์',
+    monthly: 'ทุกเดือน',
+    yearly: 'ทุกปี',
+  };
+  const RECUR_UNITS = { daily: 'วัน', weekly: 'สัปดาห์', monthly: 'เดือน', yearly: 'ปี' };
+
+  function recurLabel(task) {
+    if (!task.recur_rule || !RECUR_LABELS[task.recur_rule]) return '';
+    const interval = Number(task.recur_interval) || 1;
+    if (interval === 1) return RECUR_LABELS[task.recur_rule];
+    return `ทุก ${interval} ${RECUR_UNITS[task.recur_rule]}`;
+  }
+
+  // สลับสถานะงานย่อยโดยส่งรายการทั้งชุดกลับไป เพราะ API เก็บงานย่อยเป็นชุดเดียวกับงาน
+  async function toggleSubtask(task, index) {
+    const subtasks = task.subtasks.map((subtask, position) => ({
+      title: subtask.title,
+      completed: position === index ? !subtask.completed : subtask.completed,
+    }));
+    const updated = await api('PUT', `/api/tasks/${task.id}`, { subtasks });
+    const idx = state.tasks.findIndex((item) => item.id === task.id);
+    if (idx >= 0) state.tasks[idx] = updated;
+    renderMatrix();
   }
 
   function renderTaskCard(task) {
     const card = document.createElement('div');
     card.className = 'task-card' + (task.completed ? ' completed' : '');
+    card.dataset.taskId = String(task.id);
 
     const check = document.createElement('button');
     check.className = 'task-check' + (task.completed ? ' checked' : '');
@@ -882,6 +1123,10 @@
         const updated = await api('PUT', `/api/tasks/${task.id}`, { completed: !task.completed });
         const idx = state.tasks.findIndex((t) => t.id === task.id);
         if (idx >= 0) state.tasks[idx] = updated;
+        if (updated.next_task) {
+          state.tasks.push(updated.next_task);
+          showToast(`สร้างงานรอบถัดไปแล้ว — กำหนด ${formatTaskDue(updated.next_task)}`);
+        }
         renderMatrix();
       } catch (err) {
         showToast(err.message, true);
@@ -905,18 +1150,122 @@
       main.appendChild(desc);
     }
 
-    const badge = dueBadgeInfo(task.due_date);
+    const subtasks = task.subtasks || [];
+    if (subtasks.length > 0) {
+      const done = subtasks.filter((subtask) => subtask.completed).length;
+      const progress = document.createElement('div');
+      progress.className = 'subtask-progress';
+
+      const bar = document.createElement('span');
+      bar.className = 'subtask-bar';
+      const fill = document.createElement('span');
+      fill.style.width = `${Math.round((done / subtasks.length) * 100)}%`;
+      bar.appendChild(fill);
+      progress.appendChild(bar);
+
+      const count = document.createElement('span');
+      count.className = 'subtask-count';
+      count.textContent = `${done}/${subtasks.length}`;
+      progress.appendChild(count);
+      main.appendChild(progress);
+
+      const list = document.createElement('ul');
+      list.className = 'subtask-list';
+      subtasks.forEach((subtask, index) => {
+        const item = document.createElement('li');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'subtask-item' + (subtask.completed ? ' done' : '');
+        button.innerHTML = '<span class="subtask-tick" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="m3.5 8 3 3 6-6"/></svg></span>';
+        const label = document.createElement('span');
+        label.textContent = subtask.title;
+        button.appendChild(label);
+        button.setAttribute('aria-pressed', String(Boolean(subtask.completed)));
+        button.setAttribute(
+          'aria-label',
+          `งานย่อย ${subtask.title} — ${subtask.completed ? 'เสร็จแล้ว' : 'ยังไม่เสร็จ'}`,
+        );
+        button.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          setButtonLoading(button, true);
+          try {
+            await toggleSubtask(task, index);
+          } catch (err) {
+            showToast(err.message, true);
+            setButtonLoading(button, false);
+          }
+        });
+        item.appendChild(button);
+        list.appendChild(item);
+      });
+      main.appendChild(list);
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'task-meta';
+
+    const badge = dueBadgeInfo(task);
     if (badge) {
       const due = document.createElement('span');
       due.className = 'task-due ' + badge.cls;
       due.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg><span>' + badge.label + '</span>';
-      main.appendChild(due);
+      meta.appendChild(due);
     }
+
+    const recurring = recurLabel(task);
+    if (recurring) {
+      const chip = document.createElement('span');
+      chip.className = 'task-recur';
+      chip.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9a8 8 0 0 1 13.6-4.6L20 7M20 15a8 8 0 0 1-13.6 4.6L4 17"/><path d="M20 4v3h-3M4 20v-3h3"/></svg><span>' + recurring + '</span>';
+      meta.appendChild(chip);
+    }
+
+    (task.tags || []).forEach((tag) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'task-tag' + (state.filter.tag === tag ? ' active' : '');
+      chip.textContent = tag;
+      chip.title = `กรองเฉพาะแท็ก ${tag}`;
+      chip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.filter.tag = state.filter.tag === tag ? '' : tag;
+        saveFilterPreference();
+        renderMatrix();
+      });
+      meta.appendChild(chip);
+    });
+
+    if (meta.childElementCount > 0) main.appendChild(meta);
 
     main.addEventListener('click', () => openTaskModal(task.quadrant, task));
 
     const actions = document.createElement('div');
     actions.className = 'task-actions';
+
+    const handle = document.createElement('button');
+    handle.className = 'icon-btn task-drag-handle';
+    handle.type = 'button';
+    handle.title = 'ลากเพื่อย้าย หรือโฟกัสปุ่มนี้แล้วใช้ลูกศร (ซ้าย/ขวา = เปลี่ยนช่อง, ขึ้น/ลง = จัดลำดับ)';
+    handle.setAttribute('aria-label', `ย้ายงาน ${task.title} — ลากได้ หรือใช้ปุ่มลูกศรเมื่อโฟกัสอยู่ที่ปุ่มนี้`);
+    handle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>';
+    handle.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      startDrag(e, card, task);
+    });
+    handle.addEventListener('keydown', (e) => {
+      const actions = {
+        ArrowLeft: () => moveTaskToQuadrant(task, -1),
+        ArrowRight: () => moveTaskToQuadrant(task, 1),
+        ArrowUp: () => moveTaskWithinQuadrant(task, -1),
+        ArrowDown: () => moveTaskWithinQuadrant(task, 1),
+      };
+      const action = actions[e.key];
+      if (!action) return;
+      e.preventDefault();
+      action();
+    });
+    actions.appendChild(handle);
 
     if (task.completed) {
       const archive = document.createElement('button');
@@ -975,6 +1324,277 @@
   document.querySelectorAll('.quad-add').forEach((btn) => {
     btn.addEventListener('click', () => openTaskModal(Number(btn.dataset.addQ), null));
   });
+
+  // ---------------- ลากวางงาน ----------------
+
+  // ใช้ pointer events แทน HTML5 drag เพื่อให้ลากด้วยนิ้วบนมือถือได้เหมือนกับเมาส์
+  const drag = {
+    active: false,
+    taskId: null,
+    ghost: null,
+    placeholder: null,
+    pointerId: null,
+    offsetX: 0,
+    offsetY: 0,
+    startX: 0,
+    startY: 0,
+    started: false,
+  };
+  const DRAG_THRESHOLD = 6;
+
+  function createPlaceholder(height) {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'task-placeholder';
+    placeholder.style.height = `${height}px`;
+    return placeholder;
+  }
+
+  // ชี้ตรงไหนของช่องก็ได้ ไม่ต้องเล็งให้โดนรายการงานพอดี
+  function findDropBody(clientX, clientY) {
+    const direct = document.elementFromPoint(clientX, clientY)?.closest('.quad-body');
+    if (direct) return direct;
+    return [...document.querySelectorAll('.quad-body')].find((body) => {
+      const rect = (body.closest('.quad-card') || body).getBoundingClientRect();
+      return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+    }) || null;
+  }
+
+  // รายการงานในช่องเลื่อนได้ จึงต้องเลื่อนตามเมื่อลากไปชิดขอบ ไม่งั้นวางท้ายรายการยาว ๆ ไม่ได้
+  function autoScrollBody(body, clientY) {
+    const rect = body.getBoundingClientRect();
+    const edge = 40;
+    if (clientY > rect.bottom - edge) body.scrollTop += 14;
+    else if (clientY < rect.top + edge) body.scrollTop -= 14;
+  }
+
+  function movePlaceholder(clientX, clientY) {
+    const body = findDropBody(clientX, clientY);
+    if (!body) return;
+    autoScrollBody(body, clientY);
+    const cards = [...body.querySelectorAll('.task-card')].filter((card) => !card.classList.contains('dragging'));
+    const next = cards.find((card) => {
+      const rect = card.getBoundingClientRect();
+      return clientY < rect.top + (rect.height / 2);
+    });
+    if (next) body.insertBefore(drag.placeholder, next);
+    else body.appendChild(drag.placeholder);
+  }
+
+  // แปลงตำแหน่งที่วางเป็นลำดับจริง โดยอ้างอิงงานที่มองเห็นอยู่ เพื่อให้ลากตอนเปิดตัวกรองไว้ก็ยังถูกต้อง
+  function buildReorderPayload(taskId, targetQuadrant, siblingIdsAfterDrop) {
+    const dragged = state.tasks.find((task) => task.id === taskId);
+    if (!dragged) return null;
+    const sourceQuadrant = dragged.quadrant;
+
+    // ต้องเรียงตาม position เสมอ เพราะลำดับใน state.tasks ไม่ขยับตามตอนอัปเดตหน้าจอแบบทันที
+    const targetList = state.tasks
+      .filter((task) => task.quadrant === targetQuadrant && task.id !== taskId)
+      .sort(byPosition);
+    const visibleOrder = siblingIdsAfterDrop;
+    const dropIndexInVisible = visibleOrder.indexOf(taskId);
+    const beforeId = dropIndexInVisible > 0 ? visibleOrder[dropIndexInVisible - 1] : null;
+    const insertAt = beforeId === null
+      ? 0
+      : targetList.findIndex((task) => task.id === beforeId) + 1;
+
+    const reordered = [...targetList];
+    reordered.splice(insertAt < 0 ? reordered.length : insertAt, 0, dragged);
+
+    const items = reordered.map((task, index) => ({
+      id: task.id,
+      quadrant: targetQuadrant,
+      position: index + 1,
+    }));
+
+    if (sourceQuadrant !== targetQuadrant) {
+      state.tasks
+        .filter((task) => task.quadrant === sourceQuadrant && task.id !== taskId)
+        .sort(byPosition)
+        .forEach((task, index) => items.push({ id: task.id, quadrant: sourceQuadrant, position: index + 1 }));
+    }
+    return items;
+  }
+
+  async function finishDrag(commit, moved = commit) {
+    const card = document.querySelector('.task-card.dragging');
+    const placeholder = drag.placeholder;
+    const taskId = drag.taskId;
+    const body = placeholder && placeholder.parentElement;
+
+    if (drag.ghost) drag.ghost.remove();
+    if (card) card.classList.remove('dragging');
+    document.body.classList.remove('dragging-task');
+
+    drag.active = false;
+    drag.started = false;
+    drag.ghost = null;
+    drag.placeholder = null;
+    drag.taskId = null;
+    drag.pointerId = null;
+
+    if (!commit || !placeholder || !body) {
+      if (placeholder) placeholder.remove();
+      // แค่กดปุ่มจับแล้วปล่อยโดยไม่ลาก ไม่ต้องวาดบอร์ดใหม่ ไม่งั้นโฟกัสของปุ่มหลุดจนใช้คีย์ลัดต่อไม่ได้
+      if (moved) renderMatrix();
+      return;
+    }
+
+    const targetQuadrant = Number(body.dataset.list);
+    // การ์ดต้นทางยังอยู่ในหน้าเดิมระหว่างลาก ถ้าไม่ตัดออกจะได้รหัสงานซ้ำและอ่านตำแหน่งที่วางผิด
+    const visibleOrder = [...body.children]
+      .filter((child) => child === placeholder || !child.classList.contains('dragging'))
+      .map((child) => (child === placeholder ? taskId : Number(child.dataset.taskId)))
+      .filter((value) => Number.isInteger(value));
+    placeholder.remove();
+
+    const items = buildReorderPayload(taskId, targetQuadrant, visibleOrder);
+    if (!items) {
+      renderMatrix();
+      return;
+    }
+
+    // อัปเดตหน้าจอทันทีเพื่อไม่ให้การ์ดกระโดดกลับ แล้วค่อยยืนยันกับเซิร์ฟเวอร์
+    const positions = new Map(items.map((item) => [item.id, item]));
+    state.tasks = state.tasks.map((task) => (
+      positions.has(task.id)
+        ? { ...task, quadrant: positions.get(task.id).quadrant, position: positions.get(task.id).position }
+        : task
+    ));
+    renderMatrix();
+
+    await saveOrder(items);
+  }
+
+  // ลากติด ๆ กันหลายครั้ง คำตอบของรอบเก่าอาจกลับมาทีหลังและทับลำดับล่าสุด จึงรับเฉพาะคำตอบของรอบล่าสุด
+  let reorderSequence = 0;
+
+  async function saveOrder(items) {
+    reorderSequence += 1;
+    const sequence = reorderSequence;
+    try {
+      const tasks = await api('PUT', '/api/tasks/reorder', { items });
+      if (sequence !== reorderSequence) return;
+      state.tasks = tasks;
+      renderMatrix();
+    } catch (error) {
+      showToast(error.message, true);
+      if (sequence !== reorderSequence) return;
+      try {
+        await loadTasks();
+      } catch { /* จะซิงก์ใหม่ตอนโหลดหน้าถัดไป */ }
+      renderMatrix();
+    }
+  }
+
+  function onDragMove(event) {
+    if (!drag.active || event.pointerId !== drag.pointerId) return;
+    if (!drag.started) {
+      const moved = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
+      if (moved < DRAG_THRESHOLD) return;
+      drag.started = true;
+    }
+    event.preventDefault();
+    drag.ghost.style.left = `${event.clientX - drag.offsetX}px`;
+    drag.ghost.style.top = `${event.clientY - drag.offsetY}px`;
+    drag.ghost.hidden = true;
+    movePlaceholder(event.clientX, event.clientY);
+    drag.ghost.hidden = false;
+  }
+
+  function onDragEnd(event) {
+    if (!drag.active || event.pointerId !== drag.pointerId) return;
+    window.removeEventListener('pointermove', onDragMove);
+    window.removeEventListener('pointerup', onDragEnd);
+    window.removeEventListener('pointercancel', onDragCancel);
+    finishDrag(drag.started);
+  }
+
+  function onDragCancel(event) {
+    if (!drag.active || event.pointerId !== drag.pointerId) return;
+    window.removeEventListener('pointermove', onDragMove);
+    window.removeEventListener('pointerup', onDragEnd);
+    window.removeEventListener('pointercancel', onDragCancel);
+    finishDrag(false, drag.started);
+  }
+
+  function startDrag(event, card, task) {
+    if (event.button !== undefined && event.button !== 0) return;
+    // preventDefault กันการลากเลือกข้อความ แต่ทำให้ปุ่มไม่ได้โฟกัสเอง จึงต้องสั่งโฟกัสให้
+    if (event.currentTarget && typeof event.currentTarget.focus === 'function') event.currentTarget.focus();
+    const rect = card.getBoundingClientRect();
+
+    drag.active = true;
+    drag.started = false;
+    drag.taskId = task.id;
+    drag.pointerId = event.pointerId;
+    drag.startX = event.clientX;
+    drag.startY = event.clientY;
+    drag.offsetX = event.clientX - rect.left;
+    drag.offsetY = event.clientY - rect.top;
+
+    const ghost = card.cloneNode(true);
+    ghost.classList.add('task-ghost');
+    ghost.style.width = `${rect.width}px`;
+    ghost.style.left = `${rect.left}px`;
+    ghost.style.top = `${rect.top}px`;
+    document.body.appendChild(ghost);
+    drag.ghost = ghost;
+
+    drag.placeholder = createPlaceholder(rect.height);
+    card.parentElement.insertBefore(drag.placeholder, card.nextSibling);
+    card.classList.add('dragging');
+    document.body.classList.add('dragging-task');
+
+    window.addEventListener('pointermove', onDragMove, { passive: false });
+    window.addEventListener('pointerup', onDragEnd);
+    window.addEventListener('pointercancel', onDragCancel);
+  }
+
+  // ทางลัดคีย์บอร์ดสำหรับคนที่ลากไม่ได้ — ใช้ลูกศรตอนโฟกัสอยู่ที่ปุ่มจับ
+  // เลี่ยง Alt + ลูกศร เพราะเป็นปุ่มถอยหลัง/ไปหน้าของเบราว์เซอร์
+  async function moveTaskToQuadrant(task, delta) {
+    const target = task.quadrant + delta;
+    if (target < 1 || target > 4) return;
+    // งานที่ย้ายเข้าช่องใหม่ต้องไปต่อท้าย ไม่ใช่แทรกทับลำดับเดิมของช่องนั้น
+    const lastPosition = state.tasks
+      .filter((item) => item.quadrant === target && item.id !== task.id)
+      .reduce((max, item) => Math.max(max, item.position), 0);
+    try {
+      const updated = await api('PUT', `/api/tasks/${task.id}`, { quadrant: target, position: lastPosition + 1 });
+      const index = state.tasks.findIndex((item) => item.id === task.id);
+      if (index >= 0) state.tasks[index] = updated;
+      renderMatrix();
+      showToast(`ย้ายไปช่อง Q${target} แล้ว`);
+      focusDragHandle(task.id);
+    } catch (error) {
+      showToast(error.message, true);
+    }
+  }
+
+  async function moveTaskWithinQuadrant(task, delta) {
+    const list = state.tasks.filter((item) => item.quadrant === task.quadrant).sort(byPosition);
+    const index = list.findIndex((item) => item.id === task.id);
+    const swapWith = index + delta;
+    if (index < 0 || swapWith < 0 || swapWith >= list.length) return;
+
+    const reordered = [...list];
+    [reordered[index], reordered[swapWith]] = [reordered[swapWith], reordered[index]];
+    const items = reordered.map((item, order) => ({
+      id: item.id,
+      quadrant: task.quadrant,
+      position: order + 1,
+    }));
+
+    await saveOrder(items);
+    focusDragHandle(task.id);
+  }
+
+  // หลังวาดบอร์ดใหม่ ปุ่มจับเป็นคนละ element แล้ว จึงต้องคืนโฟกัสให้งานเดิม
+  function focusDragHandle(taskId) {
+    const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+    const handle = card && card.querySelector('.task-drag-handle');
+    if (handle) handle.focus();
+  }
 
   // ---------------- archived tasks ----------------
 
@@ -1140,16 +1760,171 @@
     renderArchiveList();
   });
 
-  function openTaskModal(quadrant, task) {
+  // ---------------- แท็กและงานย่อยในฟอร์มงาน ----------------
+
+  const MAX_TAGS = 10;
+  const MAX_SUBTASKS = 50;
+
+  function renderDraftTags() {
+    const list = el('taskTagList');
+    list.innerHTML = '';
+    state.draftTags.forEach((tag, index) => {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      const label = document.createElement('span');
+      label.textContent = tag;
+      chip.appendChild(label);
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'tag-chip-remove';
+      remove.setAttribute('aria-label', `ลบแท็ก ${tag}`);
+      remove.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+      remove.addEventListener('click', () => {
+        state.draftTags.splice(index, 1);
+        renderDraftTags();
+      });
+      chip.appendChild(remove);
+      list.appendChild(chip);
+    });
+  }
+
+  function addDraftTag(rawValue) {
+    const value = String(rawValue || '').trim().replace(/,+$/, '').trim();
+    if (!value) return;
+    if (state.draftTags.length >= MAX_TAGS) {
+      showToast(`ใส่แท็กได้สูงสุด ${MAX_TAGS} แท็ก`, true);
+      return;
+    }
+    if (state.draftTags.some((tag) => tag.toLowerCase() === value.toLowerCase())) return;
+    state.draftTags.push(value.slice(0, 30));
+    renderDraftTags();
+  }
+
+  el('taskTagInput').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault();
+      addDraftTag(event.target.value);
+      event.target.value = '';
+      return;
+    }
+    if (event.key === 'Backspace' && !event.target.value && state.draftTags.length > 0) {
+      state.draftTags.pop();
+      renderDraftTags();
+    }
+  });
+
+  el('taskTagInput').addEventListener('blur', (event) => {
+    addDraftTag(event.target.value);
+    event.target.value = '';
+  });
+
+  function renderDraftSubtasks() {
+    const list = el('taskSubtaskList');
+    list.innerHTML = '';
+    state.draftSubtasks.forEach((subtask, index) => {
+      const row = document.createElement('div');
+      row.className = 'subtask-edit-row';
+
+      const check = document.createElement('button');
+      check.type = 'button';
+      check.className = 'task-check small' + (subtask.completed ? ' checked' : '');
+      check.setAttribute('aria-pressed', String(Boolean(subtask.completed)));
+      check.setAttribute('aria-label', `สลับสถานะงานย่อย ${subtask.title}`);
+      check.addEventListener('click', () => {
+        state.draftSubtasks[index].completed = !subtask.completed;
+        renderDraftSubtasks();
+      });
+      row.appendChild(check);
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.maxLength = 200;
+      input.value = subtask.title;
+      input.className = 'subtask-edit-input' + (subtask.completed ? ' done' : '');
+      input.addEventListener('input', () => {
+        state.draftSubtasks[index].title = input.value;
+      });
+      row.appendChild(input);
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'icon-btn';
+      remove.setAttribute('aria-label', `ลบงานย่อย ${subtask.title}`);
+      remove.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+      remove.addEventListener('click', () => {
+        state.draftSubtasks.splice(index, 1);
+        renderDraftSubtasks();
+      });
+      row.appendChild(remove);
+
+      list.appendChild(row);
+    });
+  }
+
+  function addDraftSubtask(rawValue) {
+    const value = String(rawValue || '').trim();
+    if (!value) return;
+    if (state.draftSubtasks.length >= MAX_SUBTASKS) {
+      showToast(`ใส่งานย่อยได้สูงสุด ${MAX_SUBTASKS} รายการ`, true);
+      return;
+    }
+    state.draftSubtasks.push({ title: value.slice(0, 200), completed: false });
+    renderDraftSubtasks();
+  }
+
+  el('addSubtaskBtn').addEventListener('click', () => {
+    const input = el('taskSubtaskInput');
+    addDraftSubtask(input.value);
+    input.value = '';
+    input.focus();
+  });
+
+  el('taskSubtaskInput').addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    addDraftSubtask(event.target.value);
+    event.target.value = '';
+  });
+
+  function syncRecurControls() {
+    const rule = el('taskRecurRule').value;
+    el('taskRecurIntervalField').classList.toggle('hidden', !rule);
+    if (rule) el('taskRecurUnitLabel').textContent = RECUR_UNITS[rule];
+  }
+
+  el('taskRecurRule').addEventListener('change', syncRecurControls);
+
+  el('taskHasTimeToggle').addEventListener('click', () => {
+    setDueTimeEnabled(!isDueTimeEnabled());
+    if (isDueTimeEnabled()) el('taskDueTime').focus();
+  });
+
+  function openTaskModal(quadrant, task, prefill = null) {
     state.modalReturnFocus = document.activeElement;
     state.editingTaskId = task ? task.id : null;
+    state.taskSourceNoteId = prefill ? prefill.sourceNoteId : null;
     el('taskModalTitle').textContent = task ? 'แก้ไขงาน' : 'เพิ่มงานใหม่';
     el('taskId').value = task ? task.id : '';
-    el('taskTitle').value = task ? task.title : '';
-    el('taskDesc').value = task ? (task.description || '') : '';
+    el('taskTitle').value = task ? task.title : (prefill ? prefill.title : '');
+    el('taskDesc').value = task ? (task.description || '') : (prefill ? prefill.description : '');
     el('taskQuadrant').value = String(task ? task.quadrant : quadrant);
     syncCustomSelect(el('taskQuadrant'));
-    setTaskDueValue(task && task.due_date ? task.due_date : '');
+    setTaskDueValue(task && task.due_date ? task.due_date : '', task ? task.due_has_time : false);
+
+    el('taskRecurRule').value = task && task.recur_rule ? task.recur_rule : '';
+    syncCustomSelect(el('taskRecurRule'));
+    el('taskRecurInterval').value = String(task && task.recur_interval ? task.recur_interval : 1);
+    syncRecurControls();
+
+    state.draftTags = task ? [...(task.tags || [])] : [];
+    state.draftSubtasks = task
+      ? (task.subtasks || []).map((subtask) => ({ title: subtask.title, completed: Boolean(subtask.completed) }))
+      : [];
+    el('taskTagInput').value = '';
+    el('taskSubtaskInput').value = '';
+    renderDraftTags();
+    renderDraftSubtasks();
+
     el('deleteTaskBtn').classList.toggle('hidden', !task);
     el('taskModalBackdrop').classList.remove('hidden');
     document.body.classList.add('modal-open');
@@ -1197,11 +1972,32 @@
     e.preventDefault();
     const dueDate = getTaskDueValue();
     if (dueDate === undefined) return;
+
+    const recurRule = el('taskRecurRule').value;
+    if (recurRule && !dueDate) {
+      showToast('งานประจำต้องระบุกำหนดวันที่ด้วย', true);
+      el('taskDueDate').focus();
+      return;
+    }
+
+    // แท็กหรืองานย่อยที่ยังค้างอยู่ในช่องพิมพ์ต้องถูกบันทึกไปด้วย ไม่ใช่หายไปเงียบ ๆ
+    addDraftTag(el('taskTagInput').value);
+    el('taskTagInput').value = '';
+    addDraftSubtask(el('taskSubtaskInput').value);
+    el('taskSubtaskInput').value = '';
+
     const payload = {
       title: el('taskTitle').value,
       description: el('taskDesc').value,
       quadrant: Number(el('taskQuadrant').value),
       due_date: dueDate,
+      due_has_time: Boolean(dueDate) && isDueTimeEnabled(),
+      recur_rule: recurRule,
+      recur_interval: Math.min(Math.max(Number(el('taskRecurInterval').value) || 1, 1), 365),
+      tags: state.draftTags,
+      subtasks: state.draftSubtasks
+        .map((subtask) => ({ title: subtask.title.trim(), completed: subtask.completed }))
+        .filter((subtask) => subtask.title.length > 0),
     };
     const saveButton = el('saveTaskBtn');
     setButtonLoading(saveButton, true);
@@ -1214,8 +2010,10 @@
         const created = await api('POST', '/api/tasks', payload);
         state.tasks.push(created);
       }
+      const sourceNoteId = state.editingTaskId ? null : state.taskSourceNoteId;
       renderMatrix();
       closeTaskModal();
+      if (sourceNoteId) await offerNoteCleanup(sourceNoteId);
     } catch (err) {
       showToast(err.message, true);
     } finally {
@@ -1293,6 +2091,154 @@
     };
   }
 
+  // ---------------- ยอดเงินและการจัดกลุ่ม Subscription ----------------
+
+  const CYCLE_LABELS = {
+    weekly: 'ต่อสัปดาห์',
+    monthly: 'ต่อเดือน',
+    quarterly: 'ต่อไตรมาส',
+    yearly: 'ต่อปี',
+    one_time: 'จ่ายครั้งเดียว',
+  };
+  const CYCLE_ORDER = ['monthly', 'quarterly', 'yearly', 'weekly', 'one_time'];
+  // จ่ายครั้งเดียวไม่ใช่ค่าใช้จ่ายประจำ จึงไม่ถูกนับในยอดรวม
+  const MONTHLY_FACTOR = { weekly: 52 / 12, monthly: 1, quarterly: 1 / 3, yearly: 1 / 12, one_time: 0 };
+  const YEARLY_FACTOR = { weekly: 52, monthly: 12, quarterly: 4, yearly: 1, one_time: 0 };
+  const UNCATEGORIZED = 'ไม่ระบุกลุ่ม';
+
+  // null/undefined/'' แปลงเป็น 0 ได้ด้วย Number() จึงต้องคัดออกก่อน ไม่งั้นรายการที่ไม่ได้ใส่ราคาจะถูกนับเป็นศูนย์บาท
+  function hasAmount(subscription) {
+    const amount = subscription.amount;
+    if (amount === null || amount === undefined || amount === '') return false;
+    return Number.isFinite(Number(amount));
+  }
+
+  function monthlyAmount(subscription) {
+    if (!hasAmount(subscription)) return 0;
+    return Number(subscription.amount) * (MONTHLY_FACTOR[subscription.billing_cycle] ?? 0);
+  }
+
+  function yearlyAmount(subscription) {
+    if (!hasAmount(subscription)) return 0;
+    return Number(subscription.amount) * (YEARLY_FACTOR[subscription.billing_cycle] ?? 0);
+  }
+
+  function formatMoney(amount, currency = 'THB') {
+    const value = Number(amount);
+    if (!Number.isFinite(value)) return '';
+    try {
+      return new Intl.NumberFormat('th-TH', {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+        maximumFractionDigits: 2,
+      }).format(value);
+    } catch {
+      return `${value.toLocaleString('th-TH')} ${currency}`;
+    }
+  }
+
+  // รายการเก่าที่ยังเก็บราคาเป็นข้อความอิสระต้องแสดงผลได้เหมือนเดิม
+  function subscriptionPriceLabel(subscription) {
+    if (!hasAmount(subscription)) return subscription.price || '';
+    const money = formatMoney(subscription.amount, subscription.currency || 'THB');
+    const cycle = CYCLE_LABELS[subscription.billing_cycle] || '';
+    return cycle ? `${money} ${cycle}` : money;
+  }
+
+  // รวมยอดแยกตามสกุลเงิน เพราะระบบไม่แปลงค่าเงินให้
+  function summarizeSubscriptions(subscriptions) {
+    const totals = new Map();
+    subscriptions.forEach((subscription) => {
+      if (!hasAmount(subscription)) return;
+      const currency = subscription.currency || 'THB';
+      if (!totals.has(currency)) totals.set(currency, { currency, monthly: 0, yearly: 0, count: 0 });
+      const entry = totals.get(currency);
+      entry.monthly += monthlyAmount(subscription);
+      entry.yearly += yearlyAmount(subscription);
+      entry.count += 1;
+    });
+    return [...totals.values()].sort((a, b) => b.yearly - a.yearly);
+  }
+
+  function formatTotals(totals, field) {
+    if (totals.length === 0) return '—';
+    return totals.map((entry) => formatMoney(entry[field], entry.currency)).join(' + ');
+  }
+
+  // ยอดจ่ายครั้งเดียวไม่เข้ายอดประจำ จึงต้องบอกแยกไว้ ไม่ให้ดูเหมือนเงินหายไป
+  function oneTimeTotals(subscriptions) {
+    const totals = new Map();
+    subscriptions.forEach((subscription) => {
+      if (!hasAmount(subscription) || subscription.billing_cycle !== 'one_time') return;
+      const currency = subscription.currency || 'THB';
+      totals.set(currency, (totals.get(currency) || 0) + Number(subscription.amount));
+    });
+    return [...totals.entries()].map(([currency, amount]) => formatMoney(amount, currency));
+  }
+
+  function subscriptionCategories() {
+    const seen = new Map();
+    state.subscriptions.forEach((subscription) => {
+      const value = String(subscription.category || '').trim();
+      if (!value) return;
+      const key = value.toLowerCase();
+      if (!seen.has(key)) seen.set(key, value);
+    });
+    return [...seen.values()].sort((a, b) => a.localeCompare(b, 'th'));
+  }
+
+  function renderCategorySuggestions() {
+    const list = el('subscriptionCategorySuggestions');
+    list.innerHTML = '';
+    subscriptionCategories().forEach((category) => {
+      const option = document.createElement('option');
+      option.value = category;
+      list.appendChild(option);
+    });
+  }
+
+  function readGroupPreference() {
+    try {
+      const saved = window.localStorage.getItem(SUBSCRIPTION_GROUP_KEY);
+      return ['category', 'billing_cycle', 'status', 'none'].includes(saved) ? saved : 'category';
+    } catch {
+      return 'category';
+    }
+  }
+
+  function groupSubscriptions(entries, groupBy) {
+    if (groupBy === 'none') return [{ key: 'all', label: 'ทั้งหมด', entries }];
+
+    const groups = new Map();
+    entries.forEach((entry) => {
+      let key = UNCATEGORIZED;
+      if (groupBy === 'category') key = String(entry.subscription.category || '').trim() || UNCATEGORIZED;
+      else if (groupBy === 'billing_cycle') key = CYCLE_LABELS[entry.subscription.billing_cycle] || 'ไม่ระบุรอบบิล';
+      else if (groupBy === 'status') {
+        const cls = entry.status.cls;
+        key = cls === 'expired' ? 'หมดอายุแล้ว' : cls === 'today' ? 'หมดอายุวันนี้' : cls === 'soon' ? 'ใกล้หมดอายุ' : 'ยังมีเวลา';
+      }
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(entry);
+    });
+
+    const order = groupBy === 'billing_cycle'
+      ? CYCLE_ORDER.map((cycle) => CYCLE_LABELS[cycle])
+      : groupBy === 'status'
+        ? ['หมดอายุแล้ว', 'หมดอายุวันนี้', 'ใกล้หมดอายุ', 'ยังมีเวลา']
+        : null;
+
+    return [...groups.entries()]
+      .map(([label, items]) => ({ key: label, label, entries: items }))
+      .sort((a, b) => {
+        if (order) return order.indexOf(a.label) - order.indexOf(b.label);
+        if (a.label === UNCATEGORIZED) return 1;
+        if (b.label === UNCATEGORIZED) return -1;
+        return a.label.localeCompare(b.label, 'th');
+      });
+  }
+
   function subscriptionStatus(subscription) {
     const days = subscriptionDaysLeft(subscription.renewal_date);
     if (days === null) return { days: null, label: 'วันที่ไม่ถูกต้อง', cls: 'expired' };
@@ -1323,11 +2269,70 @@
     el('subscriptionTotal').textContent = subscriptions.length;
     el('subscriptionExpiring').textContent = expiring;
     el('subscriptionExpired').textContent = expired;
+
+    const totals = summarizeSubscriptions(subscriptions);
+    const withoutAmount = subscriptions.filter((subscription) => !hasAmount(subscription)).length;
+    el('subscriptionMonthlyTotal').textContent = formatTotals(totals, 'monthly');
+    el('subscriptionYearlyTotal').textContent = formatTotals(totals, 'yearly');
+    const oneTime = oneTimeTotals(subscriptions);
+    const monthlyNotes = [];
+    if (withoutAmount > 0) monthlyNotes.push(`ยังไม่ได้ใส่ราคา ${withoutAmount} รายการ`);
+    if (oneTime.length > 0) monthlyNotes.push(`ไม่รวมจ่ายครั้งเดียว ${oneTime.join(' + ')}`);
+    el('subscriptionMonthlyNote').textContent = monthlyNotes.length > 0
+      ? monthlyNotes.join(' · ')
+      : 'คิดจากทุกรายการที่ระบุราคาไว้';
+    el('subscriptionYearlyNote').textContent = totals.length > 1
+      ? 'แยกตามสกุลเงิน ไม่ได้แปลงค่าเงินให้'
+      : 'คิดจากรอบบิลของแต่ละรายการ';
+
+    renderCategorySuggestions();
     list.innerHTML = '';
     el('subscriptionEmpty').classList.toggle('hidden', subscriptions.length > 0);
     if (subscriptions.length === 0) return;
 
-    statuses.forEach(({ subscription, status }) => {
+    const groups = groupSubscriptions(statuses, state.subscriptionGroupBy);
+    groups.forEach((group) => {
+      const section = document.createElement('section');
+      section.className = 'subscription-group';
+
+      if (state.subscriptionGroupBy !== 'none') {
+        const head = document.createElement('div');
+        head.className = 'subscription-group-head';
+
+        const title = document.createElement('div');
+        title.className = 'subscription-group-title';
+        const label = document.createElement('strong');
+        label.textContent = group.label;
+        const count = document.createElement('span');
+        count.className = 'subscription-group-count';
+        count.textContent = `${group.entries.length} รายการ`;
+        title.append(label, count);
+
+        const groupSubscriptions = group.entries.map((entry) => entry.subscription);
+        const groupTotals = summarizeSubscriptions(groupSubscriptions);
+        const groupOneTime = oneTimeTotals(groupSubscriptions);
+        const recurring = groupTotals.filter((entry) => entry.monthly > 0);
+        const parts = [];
+        if (recurring.length > 0) parts.push(`${formatTotals(recurring, 'monthly')} ต่อเดือน`);
+        if (groupOneTime.length > 0) parts.push(`ครั้งเดียว ${groupOneTime.join(' + ')}`);
+        const subtotal = document.createElement('span');
+        subtotal.className = 'subscription-group-total';
+        subtotal.textContent = parts.length > 0 ? parts.join(' · ') : 'ไม่ได้ระบุราคา';
+
+        head.append(title, subtotal);
+        section.appendChild(head);
+      }
+
+      const groupList = document.createElement('div');
+      groupList.className = 'subscription-group-items';
+      section.appendChild(groupList);
+      list.appendChild(section);
+      group.entries.forEach((entry) => renderSubscriptionItem(entry, groupList));
+    });
+  }
+
+  function renderSubscriptionItem({ subscription, status }, list) {
+    {
       const item = document.createElement('div');
       item.className = 'subscription-item' + (status.cls ? ' ' + status.cls : '');
 
@@ -1368,11 +2373,24 @@
       renewal.className = 'subscription-meta-entry subscription-meta-renewal';
       renewal.textContent = 'ต่ออายุ ' + subscriptionWeekday(subscription.renewal_date, 'long') + ' ' + formatSubscriptionDate(subscription.renewal_date);
       meta.appendChild(renewal);
-      if (subscription.price) {
+      const priceText = subscriptionPriceLabel(subscription);
+      if (priceText) {
         const price = document.createElement('span');
         price.className = 'subscription-meta-entry subscription-meta-price';
-        price.textContent = subscription.price;
+        price.textContent = priceText;
         meta.appendChild(price);
+      }
+      if (hasAmount(subscription) && subscription.billing_cycle !== 'monthly' && subscription.billing_cycle !== 'one_time') {
+        const perMonth = document.createElement('span');
+        perMonth.className = 'subscription-meta-entry subscription-meta-permonth';
+        perMonth.textContent = `≈ ${formatMoney(monthlyAmount(subscription), subscription.currency || 'THB')} ต่อเดือน`;
+        meta.appendChild(perMonth);
+      }
+      if (subscription.category && state.subscriptionGroupBy !== 'category') {
+        const category = document.createElement('span');
+        category.className = 'subscription-meta-entry subscription-meta-category';
+        category.textContent = subscription.category;
+        meta.appendChild(category);
       }
       main.appendChild(meta);
       if (subscription.notes) {
@@ -1391,6 +2409,38 @@
 
       const actions = document.createElement('div');
       actions.className = 'subscription-item-actions';
+
+      if (subscription.billing_cycle !== 'one_time') {
+        const renew = document.createElement('button');
+        renew.className = 'icon-btn subscription-renew-btn';
+        renew.type = 'button';
+        renew.title = 'ยืนยันว่าจ่ายรอบนี้แล้ว';
+        renew.setAttribute('aria-label', `ยืนยันว่าจ่าย ${subscription.name} รอบนี้แล้ว`);
+        renew.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 9a8 8 0 0 1 13.6-4.6L20 7M20 15a8 8 0 0 1-13.6 4.6L4 17"/><path d="M20 4v3h-3M4 20v-3h3"/></svg>';
+        renew.addEventListener('click', async () => {
+          const confirmed = await confirmDialog({
+            title: 'จ่ายรอบนี้แล้วใช่ไหม?',
+            text: `ระบบจะบันทึกว่าจ่าย ${subscription.name} รอบวันที่ ${formatSubscriptionDate(subscription.renewal_date)} แล้ว `
+              + 'จากนั้นเลื่อนวันต่ออายุไปรอบถัดไปให้อัตโนมัติ',
+            confirmText: 'ยืนยันการจ่าย',
+            danger: false,
+          });
+          if (!confirmed) return;
+          setButtonLoading(renew, true);
+          try {
+            const result = await api('POST', `/api/subscriptions/${subscription.id}/renew`);
+            const index = state.subscriptions.findIndex((item) => item.id === subscription.id);
+            if (index >= 0) state.subscriptions[index] = result.subscription;
+            renderSubscriptions();
+            showToast(`ต่ออายุแล้ว — รอบถัดไป ${formatSubscriptionDate(result.subscription.renewal_date)}`);
+          } catch (error) {
+            showToast(error.message, true);
+            setButtonLoading(renew, false);
+          }
+        });
+        actions.appendChild(renew);
+      }
+
       const edit = document.createElement('button');
       edit.className = 'icon-btn';
       edit.type = 'button';
@@ -1426,7 +2476,7 @@
 
       item.append(main, side);
       list.appendChild(item);
-    });
+    }
   }
 
   function openSubscriptionModal(subscription) {
@@ -1435,7 +2485,13 @@
     el('subscriptionModalTitle').textContent = subscription ? 'แก้ไข Subscription' : 'เพิ่ม Subscription';
     el('subscriptionName').value = subscription ? subscription.name : '';
     el('subscriptionPlan').value = subscription ? (subscription.plan_name || '') : '';
-    el('subscriptionPrice').value = subscription ? (subscription.price || '') : '';
+    el('subscriptionAmount').value = subscription && hasAmount(subscription) ? String(subscription.amount) : '';
+    el('subscriptionCurrency').value = subscription ? (subscription.currency || 'THB') : 'THB';
+    el('subscriptionBillingCycle').value = subscription && subscription.billing_cycle
+      ? subscription.billing_cycle
+      : 'monthly';
+    el('subscriptionCategory').value = subscription ? (subscription.category || '') : '';
+    renderCategorySuggestions();
     el('subscriptionRenewalDate').value = subscription ? formatDueDate(subscription.renewal_date) : '';
     el('subscriptionRenewalDate').setCustomValidity('');
     el('subscriptionRenewalPicker').value = subscription && localDateFromValue(subscription.renewal_date)
@@ -1456,6 +2512,14 @@
     if (state.modalReturnFocus && document.contains(state.modalReturnFocus)) state.modalReturnFocus.focus();
     state.modalReturnFocus = null;
   }
+
+  el('subscriptionGroupBy').addEventListener('change', (event) => {
+    state.subscriptionGroupBy = event.target.value;
+    try {
+      window.localStorage.setItem(SUBSCRIPTION_GROUP_KEY, state.subscriptionGroupBy);
+    } catch { /* โหมดส่วนตัวของเบราว์เซอร์อาจปิดการเขียน */ }
+    renderSubscriptions();
+  });
 
   el('addSubscriptionBtn').addEventListener('click', () => openSubscriptionModal(null));
   el('cancelSubscriptionBtn').addEventListener('click', closeSubscriptionModal);
@@ -1494,13 +2558,38 @@
       renewalInput.reportValidity();
       return;
     }
+    const amountInput = el('subscriptionAmount');
+    const amountText = amountInput.value.trim();
+    amountInput.setCustomValidity('');
+    let amount = null;
+    if (amountText) {
+      amount = Number(amountText);
+      if (!Number.isFinite(amount) || amount < 0) {
+        amountInput.setCustomValidity('กรุณาระบุราคาเป็นตัวเลขที่ไม่ติดลบ');
+        amountInput.reportValidity();
+        return;
+      }
+    }
+
+    const currencyInput = el('subscriptionCurrency');
+    const currency = currencyInput.value.trim().toUpperCase() || 'THB';
+    currencyInput.setCustomValidity('');
+    if (!/^[A-Z]{3}$/.test(currency)) {
+      currencyInput.setCustomValidity('สกุลเงินต้องเป็นรหัส 3 ตัวอักษร เช่น THB');
+      currencyInput.reportValidity();
+      return;
+    }
+
     const payload = {
       name: el('subscriptionName').value,
       plan_name: el('subscriptionPlan').value,
-      price: el('subscriptionPrice').value,
       renewal_date: parsedRenewal.iso,
       reminder_days: Number(el('subscriptionReminderDays').value),
       notes: el('subscriptionNotes').value,
+      amount,
+      currency,
+      billing_cycle: el('subscriptionBillingCycle').value,
+      category: el('subscriptionCategory').value,
     };
     const button = el('saveSubscriptionBtn');
     setButtonLoading(button, true);
@@ -1583,6 +2672,18 @@
       left.appendChild(text);
       left.appendChild(time);
 
+      const noteActions = document.createElement('div');
+      noteActions.className = 'note-actions';
+
+      const convert = document.createElement('button');
+      convert.className = 'icon-btn';
+      convert.type = 'button';
+      convert.title = 'สร้างเป็นงาน';
+      convert.setAttribute('aria-label', 'สร้างงานจากบันทึกนี้');
+      convert.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M4 12h7M4 18h7"/><path d="M17 11v8M13 15h8"/></svg>';
+      convert.addEventListener('click', () => openTaskFromNote(note));
+      noteActions.appendChild(convert);
+
       const del = document.createElement('button');
       del.className = 'icon-btn';
       del.type = 'button';
@@ -1602,10 +2703,41 @@
         }
       });
 
+      noteActions.appendChild(del);
       item.appendChild(left);
-      item.appendChild(del);
+      item.appendChild(noteActions);
       list.appendChild(item);
     });
+  }
+
+  // บันทึกด่วนคือที่พักไอเดีย จึงต้องส่งต่อเป็นงานได้โดยไม่ต้องพิมพ์ใหม่
+  function openTaskFromNote(note) {
+    const lines = String(note.content).split('\n');
+    const title = lines[0].trim().slice(0, 200);
+    const description = lines.slice(1).join('\n').trim().slice(0, 5000);
+    document.querySelector('.nav-item[data-view="dashboard"]').click();
+    openTaskModal(2, null, { title, description, sourceNoteId: note.id });
+  }
+
+  async function offerNoteCleanup(noteId) {
+    const note = state.notes.find((item) => item.id === noteId);
+    const confirmed = await confirmDialog({
+      title: 'ลบบันทึกต้นทางไหม?',
+      text: note
+        ? `สร้างงานเรียบร้อยแล้ว ต้องการลบบันทึก “${note.content.split('\n')[0].slice(0, 60)}” ทิ้งหรือเก็บไว้ก่อน`
+        : 'สร้างงานเรียบร้อยแล้ว ต้องการลบบันทึกต้นทางไหม',
+      confirmText: 'ลบบันทึก',
+      cancelText: 'เก็บไว้',
+    });
+    if (!confirmed) return;
+    try {
+      await api('DELETE', `/api/notes/${noteId}`);
+      state.notes = state.notes.filter((item) => item.id !== noteId);
+      state.notesTotal = Math.max(0, state.notesTotal - 1);
+      renderNotes();
+    } catch (error) {
+      showToast(error.message, true);
+    }
   }
 
   el('saveNoteBtn').addEventListener('click', async () => {
@@ -1707,6 +2839,138 @@
       setButtonLoading(button, false);
     }
   });
+
+  // ---------------- สถิติ ----------------
+
+  const QUADRANT_SHORT = {
+    1: 'Q1 ทำทันที',
+    2: 'Q2 วางแผนทำ',
+    3: 'Q3 มอบหมาย',
+    4: 'Q4 ทำทีหลัง',
+  };
+
+  function renderDailyChart(days) {
+    const chart = el('statsDailyChart');
+    chart.innerHTML = '';
+    const max = Math.max(1, ...days.map((day) => day.count));
+    days.forEach((day) => {
+      const column = document.createElement('div');
+      column.className = 'stats-chart-col';
+      const bar = document.createElement('div');
+      bar.className = 'stats-chart-bar' + (day.count === 0 ? ' empty' : '');
+      bar.style.height = `${Math.round((day.count / max) * 100)}%`;
+      bar.title = `${day.date} — ปิดได้ ${day.count} งาน`;
+      const label = document.createElement('span');
+      label.className = 'stats-chart-label';
+      label.textContent = day.date.slice(8);
+      const value = document.createElement('span');
+      value.className = 'stats-chart-value';
+      value.textContent = day.count > 0 ? String(day.count) : '';
+      column.append(value, bar, label);
+      chart.appendChild(column);
+    });
+  }
+
+  function renderBarList(container, rows) {
+    container.innerHTML = '';
+    if (rows.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'stats-empty';
+      empty.textContent = 'ยังไม่มีข้อมูล';
+      container.appendChild(empty);
+      return;
+    }
+    const max = Math.max(...rows.map((row) => row.value), 1);
+    rows.forEach((row) => {
+      const item = document.createElement('div');
+      item.className = 'stats-bar-row';
+      const label = document.createElement('span');
+      label.className = 'stats-bar-label';
+      label.textContent = row.label;
+      const track = document.createElement('span');
+      track.className = 'stats-bar-track';
+      const fill = document.createElement('span');
+      fill.className = 'stats-bar-fill';
+      fill.style.width = `${Math.round((row.value / max) * 100)}%`;
+      if (row.tone) fill.dataset.tone = row.tone;
+      track.appendChild(fill);
+      const value = document.createElement('span');
+      value.className = 'stats-bar-value';
+      value.textContent = row.display;
+      item.append(label, track, value);
+      container.appendChild(item);
+    });
+  }
+
+  function renderStats(stats) {
+    renderDailyChart(stats.tasks.daily_completed);
+    el('statsWeekCount').textContent = stats.tasks.completed_last_7_days;
+    el('statsMonthCount').textContent = stats.tasks.completed_last_30_days;
+    el('statsOverdueCount').textContent = stats.tasks.overdue;
+
+    renderBarList(el('statsQuadrantBars'), stats.tasks.quadrants.map((entry) => ({
+      label: QUADRANT_SHORT[entry.quadrant],
+      value: entry.pending,
+      display: `${entry.pending} งาน`,
+      tone: `q${entry.quadrant}`,
+    })));
+
+    const busiest = [...stats.tasks.quadrants].sort((a, b) => b.pending - a.pending)[0];
+    el('statsQuadrantHint').textContent = busiest && busiest.pending > 0
+      ? `งานค้างมากที่สุดอยู่ที่ ${QUADRANT_SHORT[busiest.quadrant]} — ปิดได้ ${busiest.completed_last_30_days} งานใน 30 วันที่ผ่านมา`
+      : 'ยังไม่มีงานค้าง';
+
+    renderBarList(el('statsCategoryBars'), stats.subscriptions.by_category.map((entry) => ({
+      label: `${entry.category}${entry.currency !== 'THB' ? ` (${entry.currency})` : ''}`,
+      value: entry.monthly,
+      display: formatMoney(entry.monthly, entry.currency),
+    })));
+
+    const paid = stats.subscriptions.paid_this_year
+      .map((entry) => `${formatMoney(entry.total, entry.currency)} (${entry.count} ครั้ง)`);
+    el('statsSpendHint').textContent = paid.length > 0
+      ? `จ่ายไปแล้วปีนี้ ${paid.join(' + ')}`
+      : 'ยังไม่มีประวัติการจ่าย — กดปุ่มต่ออายุที่หน้า Subscription เมื่อจ่ายแล้ว';
+
+    const upcoming = el('statsUpcoming');
+    upcoming.innerHTML = '';
+    if (stats.subscriptions.upcoming_30_days.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'stats-empty';
+      empty.textContent = 'ไม่มีรายการที่ครบกำหนดใน 30 วันข้างหน้า';
+      upcoming.appendChild(empty);
+      return;
+    }
+    stats.subscriptions.upcoming_30_days.forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'stats-upcoming-row';
+      const date = document.createElement('span');
+      date.className = 'stats-upcoming-date';
+      date.textContent = formatSubscriptionDate(item.renewal_date);
+      const name = document.createElement('span');
+      name.className = 'stats-upcoming-name';
+      name.textContent = item.name + (item.category ? ` · ${item.category}` : '');
+      const amount = document.createElement('span');
+      amount.className = 'stats-upcoming-amount';
+      amount.textContent = hasAmount(item) ? formatMoney(item.amount, item.currency || 'THB') : '—';
+      row.append(date, name, amount);
+      upcoming.appendChild(row);
+    });
+  }
+
+  async function loadStats() {
+    const button = el('refreshStatsBtn');
+    setButtonLoading(button, true);
+    try {
+      renderStats(await api('GET', '/api/stats'));
+    } catch (error) {
+      showToast(error.message, true);
+    } finally {
+      setButtonLoading(button, false);
+    }
+  }
+
+  el('refreshStatsBtn').addEventListener('click', loadStats);
 
   // ---------------- settings ----------------
 
@@ -1824,6 +3088,88 @@
     }
   });
 
+  // ---------------- สำรองและกู้คืนข้อมูล ----------------
+
+  function showDataMessage(text, isError) {
+    const box = el('dataMsg');
+    box.textContent = text;
+    box.className = isError ? 'form-error' : 'form-success';
+  }
+
+  el('exportDataBtn').addEventListener('click', async () => {
+    const button = el('exportDataBtn');
+    setButtonLoading(button, true);
+    try {
+      const backup = await api('GET', '/api/data/export');
+      const stamp = new Date();
+      const name = `eisenhower-board-${stamp.getFullYear()}${pad2(stamp.getMonth() + 1)}${pad2(stamp.getDate())}.json`;
+      const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      showDataMessage(`ดาวน์โหลดไฟล์ ${name} แล้ว`, false);
+    } catch (error) {
+      showDataMessage(error.message, true);
+    } finally {
+      setButtonLoading(button, false);
+    }
+  });
+
+  el('importDataBtn').addEventListener('click', () => el('importFileInput').click());
+
+  el('importFileInput').addEventListener('change', async (event) => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const mode = el('importMode').value;
+    const confirmed = await confirmDialog({
+      title: mode === 'replace' ? 'แทนที่ข้อมูลเดิมทั้งหมด?' : 'นำเข้าข้อมูลจากไฟล์นี้?',
+      text: mode === 'replace'
+        ? `งาน บันทึก และ Subscription ที่มีอยู่จะถูกลบ แล้วแทนที่ด้วยข้อมูลในไฟล์ ${file.name}`
+        : `ข้อมูลในไฟล์ ${file.name} จะถูกเพิ่มต่อจากข้อมูลเดิม`,
+      confirmText: mode === 'replace' ? 'แทนที่ทั้งหมด' : 'นำเข้า',
+      danger: mode === 'replace',
+    });
+    if (!confirmed) return;
+
+    const button = el('importDataBtn');
+    setButtonLoading(button, true);
+    try {
+      const text = await file.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error('ไฟล์นี้ไม่ใช่ JSON ที่อ่านได้');
+      }
+      const result = await api('POST', '/api/data/import', { mode, data });
+      await Promise.all([loadTasks(), loadSettings()]);
+      state.notes = [];
+      state.notesNextCursor = null;
+      await loadNotes();
+      state.subscriptions = await api('GET', '/api/subscriptions');
+      renderMatrix();
+      renderNotes();
+      renderSubscriptions();
+      renderSettings();
+      const counts = result.imported;
+      showDataMessage(
+        `นำเข้าสำเร็จ — งาน ${counts.tasks} รายการ, บันทึก ${counts.notes} รายการ, Subscription ${counts.subscriptions} รายการ`,
+        false,
+      );
+      showToast('นำเข้าข้อมูลเรียบร้อย');
+    } catch (error) {
+      showDataMessage(error.message, true);
+    } finally {
+      setButtonLoading(button, false);
+    }
+  });
+
   // ---------------- appearance ----------------
 
   document.querySelectorAll('.theme-option').forEach((button) => {
@@ -1838,9 +3184,32 @@
 
   setupCustomSelects();
   applyTheme(readThemePreference());
+  state.filter = readFilterPreference();
+  state.subscriptionGroupBy = readGroupPreference();
+  el('subscriptionGroupBy').value = state.subscriptionGroupBy;
+
+  // ติดตั้ง service worker เพื่อให้เปิดแอปได้แม้ออฟไลน์ และติดตั้งลงหน้าจอโฮมได้
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch((error) => {
+        console.warn('ลงทะเบียน service worker ไม่สำเร็จ', error);
+      });
+    });
+  }
+
+  // ทางลัด "จดด่วน" จาก manifest เปิดหน้าต่างจดให้ทันที
+  function handleLaunchAction() {
+    const action = new URLSearchParams(window.location.search).get('action');
+    if (action !== 'jot' || !state.authenticated) return;
+    window.history.replaceState({}, '', window.location.pathname);
+    el('quickJotFab').click();
+  }
 
   initAuth().then(async () => {
-    if (state.authenticated) return null;
+    if (state.authenticated) {
+      handleLaunchAction();
+      return null;
+    }
     try {
       return await refreshGoogleAuth();
     } catch (error) {

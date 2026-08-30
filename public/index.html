@@ -5,12 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#F6F6FA" id="themeColorMeta">
 <title>Eisenhower Board — จัดการงานตามความสำคัญ</title>
+<meta name="description" content="จัดการงานด้วย Eisenhower Matrix พร้อมจดด่วนและแจ้งเตือนผ่าน Telegram">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Eisenhower">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
   /* ป้องกันหน้าฟอร์มภายในหลุดออกมาระหว่างที่ stylesheet หลักกำลังโหลด */
   .hidden { display: none !important; }
 </style>
-<script src="./js/theme-init.js?v=0.5.0"></script>
-<link rel="stylesheet" href="./css/style.css?v=0.5.0">
+<script src="./js/theme-init.js?v=0.7.0"></script>
+<link rel="stylesheet" href="./css/style.css?v=0.7.0">
 </head>
 <body>
 
@@ -128,6 +135,10 @@
       <span class="nav-label">จดด่วน</span>
       <span class="nav-badge" id="sidebarNoteCount">0</span>
     </button>
+    <button class="nav-item" type="button" data-view="stats" aria-label="สถิติ">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+      <span class="nav-label">สถิติ</span>
+    </button>
     <button class="nav-item" type="button" data-view="subscription" aria-label="Subscription">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/></svg>
       <span class="nav-label">Subscription</span>
@@ -179,6 +190,24 @@
           </div>
         </div>
       </div>
+
+      <div class="task-filter" role="group" aria-label="ตัวกรองงาน">
+        <div class="task-filter-chips">
+          <button class="filter-chip active" type="button" data-filter="all" aria-pressed="true">ทั้งหมด</button>
+          <button class="filter-chip" type="button" data-filter="pending" aria-pressed="false">ยังไม่เสร็จ</button>
+          <button class="filter-chip" type="button" data-filter="completed" aria-pressed="false">เสร็จแล้ว</button>
+          <button class="filter-chip" type="button" data-filter="overdue" aria-pressed="false">เลยกำหนด</button>
+          <button class="filter-chip" type="button" data-filter="today" aria-pressed="false">ครบกำหนดวันนี้</button>
+          <button class="filter-chip" type="button" data-filter="week" aria-pressed="false">ภายใน 7 วัน</button>
+        </div>
+        <div class="task-filter-side">
+          <select id="taskTagFilter" class="filter-select" aria-label="กรองตามแท็ก">
+            <option value="">ทุกแท็ก</option>
+          </select>
+          <button class="filter-reset hidden" type="button" id="clearFilterBtn">ล้างตัวกรอง</button>
+        </div>
+      </div>
+      <div class="filter-summary hidden" id="filterSummary" role="status" aria-live="polite"></div>
 
       <div class="matrix-axes">
         <div class="axis-label axis-top-left">ด่วน</div>
@@ -399,6 +428,33 @@
       </div>
 
       <div class="settings-section">
+        <h2>สำรองและกู้คืนข้อมูล</h2>
+        <p class="desc">ดาวน์โหลดงาน บันทึก และ Subscription ทั้งหมดเป็นไฟล์ JSON หรือนำไฟล์เดิมกลับเข้าระบบ</p>
+        <div class="settings-row">
+          <div>
+            <div class="row-label">ส่งออกข้อมูล</div>
+            <div class="row-hint">ไฟล์ไม่มี Bot Token และ Chat ID เพื่อความปลอดภัย</div>
+          </div>
+          <button class="btn btn-secondary" type="button" id="exportDataBtn">ดาวน์โหลดไฟล์สำรอง</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="row-label">นำเข้าข้อมูล</div>
+            <div class="row-hint">เลือกโหมดก่อนเลือกไฟล์ — โหมดแทนที่จะลบข้อมูลเดิมทั้งหมด</div>
+          </div>
+          <div class="import-controls">
+            <select id="importMode" class="filter-select" aria-label="โหมดนำเข้า">
+              <option value="merge">เพิ่มต่อจากของเดิม</option>
+              <option value="replace">แทนที่ข้อมูลเดิมทั้งหมด</option>
+            </select>
+            <button class="btn btn-secondary" type="button" id="importDataBtn">เลือกไฟล์…</button>
+            <input id="importFileInput" type="file" accept="application/json,.json" class="hidden">
+          </div>
+        </div>
+        <div id="dataMsg"></div>
+      </div>
+
+      <div class="settings-section">
         <h2>เปลี่ยนรหัสผ่าน</h2>
         <p class="desc">ใช้รหัสผ่านปัจจุบันเพื่อยืนยันตัวตนก่อนตั้งรหัสใหม่</p>
         <div class="field">
@@ -414,6 +470,47 @@
           <button class="btn btn-primary" type="button" id="changePasswordBtn" style="width:auto;">เปลี่ยนรหัสผ่าน</button>
         </div>
         <div id="passwordMsg"></div>
+      </div>
+    </section>
+
+    <!-- ---------- Stats view ---------- -->
+    <section id="view-stats" class="view stats-view">
+      <div class="topbar">
+        <div>
+          <div class="page-eyebrow">Insights</div>
+          <h1>สถิติ</h1>
+          <p class="dashboard-subtitle">ดูว่าเวลาและเงินหมดไปกับอะไร</p>
+        </div>
+        <button class="btn btn-secondary" type="button" id="refreshStatsBtn" style="width:auto;">รีเฟรช</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stats-card stats-card-wide">
+          <h2>งานที่ปิดได้ 14 วันล่าสุด</h2>
+          <div class="stats-chart" id="statsDailyChart" role="img" aria-label="กราฟจำนวนงานที่ปิดได้รายวัน"></div>
+          <div class="stats-legend">
+            <span>7 วันล่าสุด <strong id="statsWeekCount">0</strong> งาน</span>
+            <span>30 วันล่าสุด <strong id="statsMonthCount">0</strong> งาน</span>
+            <span>เลยกำหนดอยู่ <strong id="statsOverdueCount">0</strong> งาน</span>
+          </div>
+        </div>
+
+        <div class="stats-card">
+          <h2>งานคงค้างแยกตามช่อง</h2>
+          <div class="stats-bars" id="statsQuadrantBars"></div>
+          <p class="stats-hint" id="statsQuadrantHint">ถ้า Q1 บวมกว่าช่องอื่น แปลว่ากำลังวิ่งตามงานด่วนมากกว่างานสำคัญ</p>
+        </div>
+
+        <div class="stats-card">
+          <h2>ค่าใช้จ่าย Subscription ต่อเดือน</h2>
+          <div class="stats-bars" id="statsCategoryBars"></div>
+          <p class="stats-hint" id="statsSpendHint"></p>
+        </div>
+
+        <div class="stats-card stats-card-wide">
+          <h2>ครบกำหนดจ่ายใน 30 วัน</h2>
+          <div class="stats-upcoming" id="statsUpcoming"></div>
+        </div>
       </div>
     </section>
 
@@ -437,6 +534,16 @@
       </div>
 
       <div class="subscription-summary">
+        <div class="subscription-stat subscription-stat-monthly">
+          <span>รวมต่อเดือน</span>
+          <strong id="subscriptionMonthlyTotal">—</strong>
+          <small id="subscriptionMonthlyNote">ยังไม่มีรายการที่ระบุราคา</small>
+        </div>
+        <div class="subscription-stat subscription-stat-yearly">
+          <span>รวมต่อปี</span>
+          <strong id="subscriptionYearlyTotal">—</strong>
+          <small id="subscriptionYearlyNote">คิดจากรอบบิลของแต่ละรายการ</small>
+        </div>
         <div class="subscription-stat subscription-stat-total">
           <span>Subscription ทั้งหมด</span>
           <strong id="subscriptionTotal">0</strong>
@@ -461,7 +568,15 @@
             <h2>รายการที่บันทึกไว้</h2>
             <span>จัดเรียงตามวันต่ออายุอัตโนมัติ</span>
           </div>
-          <span class="subscription-list-key"><i></i>สถานะปัจจุบัน</span>
+          <label class="subscription-group-control">
+            <span>จัดกลุ่มตาม</span>
+            <select id="subscriptionGroupBy" class="filter-select">
+              <option value="category">กลุ่ม</option>
+              <option value="billing_cycle">รอบบิล</option>
+              <option value="status">สถานะ</option>
+              <option value="none">ไม่จัดกลุ่ม</option>
+            </select>
+          </label>
         </div>
         <div id="subscriptionList" class="subscriptions-list"></div>
         <div id="subscriptionEmpty" class="quad-empty subscription-empty hidden">ยังไม่มี Subscription ลองเพิ่มบริการที่สมัครไว้ดูสิ</div>
@@ -520,6 +635,54 @@
         </div>
         <small class="hint">รูปแบบ วัน/เดือน/ปี (dd/mm/yyyy)</small>
       </div>
+      <div class="settings-row modal-row" id="taskTimeField">
+        <div>
+          <div class="row-label">ระบุเวลาด้วย</div>
+          <div class="row-hint">ถ้าไม่ระบุ จะถือว่าครบกำหนดตอนสิ้นสุดของวันนั้น</div>
+        </div>
+        <div class="modal-row-controls">
+          <input id="taskDueTime" class="settings-time-input hidden" type="time" aria-label="เวลาที่ครบกำหนด">
+          <button class="toggle" type="button" id="taskHasTimeToggle" aria-label="เปิดหรือปิดการระบุเวลา" aria-pressed="false"></button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="taskRecurRuleTrigger">งานประจำ</label>
+        <div class="recur-row">
+          <select id="taskRecurRule" class="field-select">
+            <option value="">ไม่ทำซ้ำ</option>
+            <option value="daily">ทุกวัน</option>
+            <option value="weekly">ทุกสัปดาห์</option>
+            <option value="monthly">ทุกเดือน</option>
+            <option value="yearly">ทุกปี</option>
+          </select>
+          <label class="recur-interval hidden" id="taskRecurIntervalField">
+            <span>ทุก ๆ</span>
+            <input id="taskRecurInterval" type="number" min="1" max="365" value="1" inputmode="numeric">
+            <span id="taskRecurUnitLabel">วัน</span>
+          </label>
+        </div>
+        <small class="hint">เมื่อทำเครื่องหมายว่าเสร็จ ระบบจะสร้างงานรอบถัดไปให้อัตโนมัติ (ต้องมีกำหนดวันที่)</small>
+      </div>
+      <div class="field">
+        <label for="taskTagInput">แท็ก (ถ้ามี)</label>
+        <div class="tag-editor" id="taskTagEditor">
+          <div class="tag-chip-list" id="taskTagList"></div>
+          <input id="taskTagInput" type="text" maxlength="30" placeholder="พิมพ์แท็กแล้วกด Enter" autocomplete="off" list="taskTagSuggestions">
+          <datalist id="taskTagSuggestions"></datalist>
+        </div>
+        <small class="hint">ใส่ได้สูงสุด 10 แท็ก · กด Enter หรือ , เพื่อเพิ่ม</small>
+      </div>
+      <div class="field">
+        <label for="taskSubtaskInput">งานย่อย (ถ้ามี)</label>
+        <div class="subtask-editor">
+          <div class="subtask-editor-list" id="taskSubtaskList"></div>
+          <div class="subtask-add-row">
+            <input id="taskSubtaskInput" type="text" maxlength="200" placeholder="เพิ่มขั้นตอนย่อย..." autocomplete="off">
+            <button type="button" class="btn btn-secondary" id="addSubtaskBtn">เพิ่ม</button>
+          </div>
+        </div>
+        <small class="hint">ใส่ได้สูงสุด 50 งานย่อย</small>
+      </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-danger-ghost hidden" id="deleteTaskBtn">ลบงาน</button>
         <button type="button" class="btn btn-secondary" id="cancelTaskBtn">ยกเลิก</button>
@@ -555,8 +718,32 @@
         <input id="subscriptionPlan" type="text" maxlength="200" placeholder="เช่น Premium, 200 GB">
       </div>
       <div class="field">
-        <label for="subscriptionPrice">ราคา (ถ้ามี)</label>
-        <input id="subscriptionPrice" type="text" maxlength="50" placeholder="เช่น 399 บาท/เดือน">
+        <label for="subscriptionAmount">ราคา (ถ้ามี)</label>
+        <div class="price-row">
+          <input id="subscriptionAmount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="เช่น 399">
+          <input id="subscriptionCurrency" type="text" maxlength="3" list="currencySuggestions" placeholder="THB" aria-label="สกุลเงิน">
+          <datalist id="currencySuggestions">
+            <option value="THB">บาท</option>
+            <option value="USD">ดอลลาร์สหรัฐ</option>
+            <option value="EUR">ยูโร</option>
+            <option value="GBP">ปอนด์</option>
+            <option value="JPY">เยน</option>
+            <option value="SGD">ดอลลาร์สิงคโปร์</option>
+          </datalist>
+          <select id="subscriptionBillingCycle" class="filter-select" aria-label="รอบการจ่ายเงิน">
+            <option value="monthly">ต่อเดือน</option>
+            <option value="quarterly">ต่อไตรมาส</option>
+            <option value="yearly">ต่อปี</option>
+            <option value="weekly">ต่อสัปดาห์</option>
+            <option value="one_time">จ่ายครั้งเดียว</option>
+          </select>
+        </div>
+        <small class="hint">ใส่เป็นตัวเลขเพื่อให้ระบบรวมยอดต่อเดือนและต่อปีให้ — จ่ายครั้งเดียวจะไม่ถูกนับเป็นค่าใช้จ่ายประจำ</small>
+      </div>
+      <div class="field">
+        <label for="subscriptionCategory">กลุ่ม (ถ้ามี)</label>
+        <input id="subscriptionCategory" type="text" maxlength="40" list="subscriptionCategorySuggestions" placeholder="เช่น บันเทิง, งาน, คลาวด์" autocomplete="off">
+        <datalist id="subscriptionCategorySuggestions"></datalist>
       </div>
       <div class="field">
         <label for="subscriptionRenewalDate">วันต่ออายุ / วันหมดอายุ</label>
@@ -644,6 +831,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="./js/app.js?v=0.5.0"></script>
+<script src="./js/app.js?v=0.7.0"></script>
 </body>
 </html>

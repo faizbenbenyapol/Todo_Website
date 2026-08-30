@@ -9,6 +9,8 @@ const taskRoutes = require('./src/routes/tasks');
 const noteRoutes = require('./src/routes/notes');
 const subscriptionRoutes = require('./src/routes/subscriptions');
 const settingsRoutes = require('./src/routes/settings');
+const dataRoutes = require('./src/routes/data');
+const statsRoutes = require('./src/routes/stats');
 const { startScheduler } = require('./src/services/scheduler');
 
 const app = express();
@@ -29,6 +31,8 @@ app.use((req, res, next) => {
     "object-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'self'",
+    "manifest-src 'self'",
+    "worker-src 'self'",
     "script-src 'self' https://accounts.google.com",
     "style-src 'self' 'unsafe-inline' https://accounts.google.com",
     "frame-src https://accounts.google.com",
@@ -42,7 +46,12 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: '50kb', strict: true }));
+// การนำเข้าข้อมูลรับไฟล์สำรองทั้งไฟล์ จึงมีตัวอ่าน JSON ของตัวเองที่ผ่อนขนาดให้
+const jsonParser = express.json({ limit: '50kb', strict: true });
+app.use((req, res, next) => {
+  if (req.path === '/api/data/import') return next();
+  return jsonParser(req, res, next);
+});
 
 // Browser ที่ยิงคำขอเปลี่ยนข้อมูลจาก origin อื่นต้องถูกปฏิเสธ แม้จะมี cookie ติดมาด้วย
 app.use((req, res, next) => {
@@ -83,6 +92,8 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/data', dataRoutes);
+app.use('/api/stats', statsRoutes);
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'ไม่พบ API ที่เรียก' }));
 app.use(express.static(path.join(__dirname, 'public'), {

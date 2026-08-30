@@ -1,12 +1,12 @@
 {
   "name": "eisenhower-board",
-  "version": "0.5.0",
+  "version": "0.7.0",
   "description": "จัดการงานด้วย Eisenhower Matrix พร้อมจดด่วนและแจ้งเตือนผ่าน Telegram สำหรับติดตั้งบนเซิร์ฟเวอร์ของคุณเอง",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "check": "node --check server.js && node --check public/js/app.js",
+    "check": "node --check server.js && node --check public/js/app.js && node --check public/sw.js",
     "test": "node --test --test-concurrency=1"
   },
   "license": "MIT",

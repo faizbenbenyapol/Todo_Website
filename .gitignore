@@ -1,6 +1,8 @@
 node_modules/
 .env
-.env.local
+.env.*
+!.env.example
+.claude/settings.local.json
 docker-compose.override.yml
 data/*
 !data/.gitkeep

@@ -1,7 +1,11 @@
+const path = require('path');
 const cron = require('node-cron');
 const db = require('../db');
 const { sendTelegramMessage } = require('./telegram');
 const { decryptSecret, encryptSecret, needsSecretReencryption } = require('./secrets');
+const { priceLabel } = require('./subscriptions');
+const { writeBackups } = require('./backup');
+const config = require('../config');
 
 const QUADRANT_LABELS = {
   1: 'ทำทันที (ด่วน+สำคัญ)',
@@ -24,6 +28,19 @@ function formatThaiDate(iso) {
   if (Number.isNaN(date.getTime())) return 'ไม่ระบุวันที่';
   return date.toLocaleString('th-TH', {
     dateStyle: 'medium',
+    timeZone: 'Asia/Bangkok',
+  });
+}
+
+// งานที่ระบุเวลาไว้ต้องเห็นเวลาในข้อความแจ้งเตือนด้วย ไม่ใช่แค่วันที่
+function formatTaskDue(task) {
+  if (!task.due_date) return 'ไม่ระบุวันที่';
+  if (!task.due_has_time) return formatThaiDate(task.due_date);
+  const date = new Date(task.due_date);
+  if (Number.isNaN(date.getTime())) return 'ไม่ระบุวันที่';
+  return date.toLocaleString('th-TH', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
     timeZone: 'Asia/Bangkok',
   });
 }
@@ -75,7 +92,7 @@ async function checkDueReminders(now = new Date()) {
     const windowEnd = new Date(now.getTime() + notifyMinutes * 60000).toISOString();
     const dueTasks = db.prepare(`
       SELECT * FROM tasks
-      WHERE user_id = ? AND completed = 0 AND notified = 0
+      WHERE user_id = ? AND completed = 0 AND archived = 0 AND notified = 0
         AND due_date IS NOT NULL AND due_date != ''
         AND datetime(due_date) <= datetime(?)
         AND (notification_claimed_at IS NULL OR notification_claimed_at < ?)
@@ -95,7 +112,7 @@ async function checkDueReminders(now = new Date()) {
       const text = [
         `⏰ <b>${heading}</b>`,
         escapeTelegramHtml(task.title),
-        `กำหนด: ${escapeTelegramHtml(formatThaiDate(task.due_date))}`,
+        `กำหนด: ${escapeTelegramHtml(formatTaskDue(task))}`,
         `หมวด: ${escapeTelegramHtml(QUADRANT_LABELS[task.quadrant] || '')}`,
       ].join('\n');
       const result = await sendTelegramMessage(
@@ -162,7 +179,7 @@ async function checkSubscriptionReminders(now = new Date()) {
         subscription.plan_name ? 'แพ็กเกจ: ' + escapeTelegramHtml(subscription.plan_name) : '',
         '<b>สถานะ: ' + escapeTelegramHtml(status) + '</b>',
         'วันต่ออายุ: ' + escapeTelegramHtml(formatThaiDate(subscription.renewal_date)),
-        subscription.price ? 'ราคา: ' + escapeTelegramHtml(subscription.price) : '',
+        priceLabel(subscription) ? 'ราคา: ' + escapeTelegramHtml(priceLabel(subscription)) : '',
       ].filter(Boolean).join('\n');
       const result = await sendTelegramMessage(
         token,
@@ -198,7 +215,7 @@ function buildDailySummary(tasks) {
     }
 
     for (const task of items) {
-      const due = task.due_date ? ` (กำหนด ${escapeTelegramHtml(formatThaiDate(task.due_date))})` : '';
+      const due = task.due_date ? ` (กำหนด ${escapeTelegramHtml(formatTaskDue(task))})` : '';
       const line = `• ${escapeTelegramHtml(task.title)}${due}\n`;
       if (text.length + line.length < MAX_TELEGRAM_TEXT - 80) text += line;
       else omitted += 1;
@@ -244,7 +261,7 @@ async function checkDailySummaries(now = new Date()) {
     if (claim.changes !== 1) continue;
 
     const tasks = db.prepare(`
-      SELECT * FROM tasks WHERE user_id = ? AND completed = 0 ORDER BY quadrant, due_date, id
+      SELECT * FROM tasks WHERE user_id = ? AND completed = 0 AND archived = 0 ORDER BY quadrant, due_date, id
     `).all(settings.user_id);
     const result = await sendTelegramMessage(
       token,
@@ -266,6 +283,27 @@ async function checkDailySummaries(now = new Date()) {
   }
 }
 
+// สำรองข้อมูลของทุกบัญชีวันละครั้ง เก็บไว้ในโฟลเดอร์ data ซึ่งเป็นที่เดียวที่เขียนได้ตอนรันใน Docker
+let lastBackupDate = '';
+
+async function runAutoBackup(now = new Date()) {
+  if (!config.autoBackupEnabled) return;
+  const clock = bangkokClock(now);
+  const scheduled = parseTimeMinutes(config.autoBackupTime);
+  if (scheduled === null || clock.minutes < scheduled) return;
+  if (lastBackupDate === clock.date) return;
+
+  const directory = path.join(config.dataDir, 'backups');
+  try {
+    const result = writeBackups({ directory, keep: config.autoBackupKeep, date: clock.date });
+    lastBackupDate = clock.date;
+    console.log(`[backup] สำรองข้อมูล ${result.written.length} ไฟล์ที่ ${directory}`
+      + (result.removed.length > 0 ? ` (ลบไฟล์เก่า ${result.removed.length} ไฟล์)` : ''));
+  } catch (error) {
+    console.error('[backup] สำรองข้อมูลไม่สำเร็จ:', error.message);
+  }
+}
+
 function startScheduler() {
   let running = false;
   const task = cron.schedule('* * * * *', async () => {
@@ -276,6 +314,7 @@ function startScheduler() {
       await checkSubscriptionReminders(now);
       await checkDueReminders(now);
       await checkDailySummaries(now);
+      await runAutoBackup(now);
     } catch (error) {
       console.error('[scheduler] error:', error);
     } finally {
@@ -293,6 +332,8 @@ module.exports = {
   checkDueReminders,
   checkDailySummaries,
   buildDailySummary,
+  formatTaskDue,
+  runAutoBackup,
   escapeTelegramHtml,
   bangkokClock,
 };

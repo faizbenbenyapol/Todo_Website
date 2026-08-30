@@ -40,6 +40,27 @@ db.exec(`
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS subtasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    completed INTEGER NOT NULL DEFAULT 0,
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS subscription_payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    subscription_id INTEGER NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    paid_on TEXT NOT NULL,
+    amount REAL,
+    currency TEXT NOT NULL DEFAULT 'THB',
+    billing_cycle TEXT NOT NULL DEFAULT 'monthly',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -92,14 +113,44 @@ for (const [column, sql] of userMigrations) {
 
 function ensureColumn(table, column, sql) {
   const columns = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((item) => item.name));
-  if (!columns.has(column)) db.exec(sql);
+  if (columns.has(column)) return false;
+  db.exec(sql);
+  return true;
 }
 
 ensureColumn('tasks', 'notification_claimed_at', 'ALTER TABLE tasks ADD COLUMN notification_claimed_at TEXT');
 ensureColumn('tasks', 'archived', 'ALTER TABLE tasks ADD COLUMN archived INTEGER NOT NULL DEFAULT 0');
+ensureColumn('tasks', 'due_has_time', 'ALTER TABLE tasks ADD COLUMN due_has_time INTEGER NOT NULL DEFAULT 0');
+ensureColumn('tasks', 'recur_rule', "ALTER TABLE tasks ADD COLUMN recur_rule TEXT NOT NULL DEFAULT ''");
+ensureColumn('tasks', 'recur_interval', 'ALTER TABLE tasks ADD COLUMN recur_interval INTEGER NOT NULL DEFAULT 1');
+ensureColumn('tasks', 'tags', "ALTER TABLE tasks ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'");
+
+// เวลาที่ปิดงานต้องเก็บแยกจาก updated_at เพราะการแก้ไขอื่นก็ขยับ updated_at ทำให้สถิติเพี้ยน
+if (ensureColumn('tasks', 'completed_at', 'ALTER TABLE tasks ADD COLUMN completed_at TEXT')) {
+  db.exec("UPDATE tasks SET completed_at = updated_at WHERE completed = 1 AND completed_at IS NULL");
+}
 ensureColumn('settings', 'daily_summary_claimed_for', "ALTER TABLE settings ADD COLUMN daily_summary_claimed_for TEXT DEFAULT ''");
 ensureColumn('settings', 'daily_summary_claimed_at', 'ALTER TABLE settings ADD COLUMN daily_summary_claimed_at TEXT');
 ensureColumn('settings', 'subscription_notify_enabled', 'ALTER TABLE settings ADD COLUMN subscription_notify_enabled INTEGER DEFAULT 1');
+
+const addedAmountColumn = ensureColumn('subscriptions', 'amount', 'ALTER TABLE subscriptions ADD COLUMN amount REAL');
+ensureColumn('subscriptions', 'currency', "ALTER TABLE subscriptions ADD COLUMN currency TEXT NOT NULL DEFAULT 'THB'");
+ensureColumn('subscriptions', 'billing_cycle', "ALTER TABLE subscriptions ADD COLUMN billing_cycle TEXT NOT NULL DEFAULT 'monthly'");
+ensureColumn('subscriptions', 'category', "ALTER TABLE subscriptions ADD COLUMN category TEXT NOT NULL DEFAULT ''");
+
+// รายการเดิมเก็บราคาเป็นข้อความอิสระ จึงแปลงเป็นตัวเลขให้ครั้งเดียวตอนอัปเกรด เพื่อให้รวมยอดได้
+if (addedAmountColumn) {
+  const { parseLegacyPrice } = require('./services/subscriptions');
+  const rows = db.prepare("SELECT id, price FROM subscriptions WHERE price IS NOT NULL AND price != ''").all();
+  const update = db.prepare('UPDATE subscriptions SET amount = ?, currency = ?, billing_cycle = ? WHERE id = ?');
+  const backfill = db.transaction(() => {
+    for (const row of rows) {
+      const parsed = parseLegacyPrice(row.price);
+      if (parsed) update.run(parsed.amount, parsed.currency, parsed.billingCycle, row.id);
+    }
+  });
+  backfill.immediate();
+}
 
 db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_unique
@@ -112,11 +163,20 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS tasks_due_pending
   ON tasks(user_id, completed, notified, due_date);
 
+  CREATE INDEX IF NOT EXISTS subtasks_task_position
+  ON subtasks(task_id, position, id);
+
   CREATE INDEX IF NOT EXISTS notes_user_id_desc
   ON notes(user_id, id DESC);
 
   CREATE INDEX IF NOT EXISTS subscriptions_due_pending
   ON subscriptions(user_id, notified, renewal_date);
+
+  CREATE INDEX IF NOT EXISTS subscription_payments_user_date
+  ON subscription_payments(user_id, paid_on DESC, id DESC);
+
+  CREATE INDEX IF NOT EXISTS tasks_completed_at
+  ON tasks(user_id, completed, completed_at);
 `);
 
 module.exports = db;

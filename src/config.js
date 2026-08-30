@@ -62,5 +62,13 @@ module.exports = {
   dataDir: process.env.DATA_DIR
     ? path.resolve(process.env.DATA_DIR)
     : path.join(__dirname, '..', 'data'),
+  autoBackupEnabled: envBoolean('AUTO_BACKUP_ENABLED', true),
+  autoBackupTime: /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(String(process.env.AUTO_BACKUP_TIME || ''))
+    ? String(process.env.AUTO_BACKUP_TIME)
+    : '03:00',
+  autoBackupKeep: (() => {
+    const value = Number(process.env.AUTO_BACKUP_KEEP);
+    return Number.isInteger(value) && value >= 1 && value <= 90 ? value : 7;
+  })(),
   warnings,
 };
