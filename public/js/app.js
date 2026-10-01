@@ -82,6 +82,19 @@
 
   function el(id) { return document.getElementById(id); }
 
+  // จำว่ากดเมาส์ลงที่ไหน — ถ้าลากจากในหน้าต่างไปปล่อยนอกหน้าต่าง (เช่นลากคลุมข้อความ) จะไม่นับเป็นการคลิกฉากหลัง
+  let pointerDownTarget = null;
+  document.addEventListener('pointerdown', (event) => { pointerDownTarget = event.target; }, true);
+
+  function isBackdropClick(event, backdrop) {
+    return event.target === backdrop && pointerDownTarget === backdrop;
+  }
+
+  // ปลดล็อกการเลื่อนหน้าเฉพาะเมื่อไม่มีหน้าต่างไหนเปิดค้างอยู่แล้ว (เช่น ปิดกล่องยืนยันที่ซ้อนบนหน้าต่างแก้ไขงาน)
+  function releaseModalLock() {
+    if (!document.querySelector('.modal-backdrop:not(.hidden)')) document.documentElement.classList.remove('modal-open');
+  }
+
   function confirmDialog({ title = 'ยืนยันการทำรายการ', text = '', confirmText = 'ยืนยัน', cancelText = 'ยกเลิก', danger = true } = {}) {
     return new Promise((resolve) => {
       const backdrop = el('confirmDialogBackdrop');
@@ -97,7 +110,7 @@
 
       function cleanup(result) {
         backdrop.classList.add('hidden');
-        document.body.classList.remove('modal-open');
+        releaseModalLock();
         confirmBtn.removeEventListener('click', onConfirm);
         cancelBtn.removeEventListener('click', onCancel);
         backdrop.removeEventListener('click', onBackdropClick);
@@ -107,7 +120,7 @@
       }
       function onConfirm() { cleanup(true); }
       function onCancel() { cleanup(false); }
-      function onBackdropClick(event) { if (event.target === backdrop) cleanup(false); }
+      function onBackdropClick(event) { if (isBackdropClick(event, backdrop)) cleanup(false); }
       function onKeydown(event) { if (event.key === 'Escape') cleanup(false); }
 
       confirmBtn.addEventListener('click', onConfirm);
@@ -116,7 +129,7 @@
       document.addEventListener('keydown', onKeydown);
 
       backdrop.classList.remove('hidden');
-      document.body.classList.add('modal-open');
+      document.documentElement.classList.add('modal-open');
       cancelBtn.focus();
     });
   }
@@ -288,7 +301,7 @@
   };
   const THEME_META_COLORS = {
     light: '#F6F6FA',
-    dark: '#0B0C10',
+    dark: '#101412',
     sakura: '#FAF6F7',
     mint: '#F5F7F5',
     sky: '#F5F7F9',
@@ -754,6 +767,46 @@
 
   const CHANGELOG = [
     {
+      version: '0.9.1',
+      date: '2026-10-01',
+      items: [
+        'กด Ctrl+Enter รัว ๆ ไม่สร้างงานซ้ำแล้ว',
+        'กด Esc ที่กล่องยืนยันลบ จะยกเลิกแค่กล่องยืนยัน ไม่ปิดหน้าต่างแก้ไขงานไปด้วย',
+        'ตัวนับวันและไฮไลต์วันนี้อัปเดตเองเมื่อข้ามวัน แม้เปิดแอปค้างไว้',
+        'สรุปเดือนบนปฏิทินนับถูกต้องแม้ซ่อนงานหรือ Subscription ไว้',
+        'คำอธิบายงานบนการ์ดแสดงได้ถึง 4 บรรทัด',
+      ],
+    },
+    {
+      version: '0.9.0',
+      date: '2026-10-01',
+      items: [
+        'หน้าปฏิทินใหม่: เห็นกำหนดส่งงานและวันจ่าย Subscription รวมกันในตารางเดือน',
+        'กดวันไหนก็เห็นรายการของวันนั้น พร้อมเพิ่มงานที่ต้องส่งวันนั้นได้ทันที',
+        'สรุปทั้งเดือนว่ามีงานต้องส่งกี่งาน และต้องจ่ายเงินรวมเท่าไร',
+      ],
+    },
+    {
+      version: '0.8.0',
+      date: '2026-10-01',
+      items: [
+        'การ์ดงานบอกเลยว่าเหลืออีกกี่วัน (เช่น "อีก 18 วัน", "เลยมา 3 วัน") พร้อมวันที่แบบสั้น',
+        'ใต้หัวข้อแดชบอร์ดบอกงานที่ควรหยิบก่อน: งานที่เลยกำหนด หรืองานถัดไปที่ใกล้ที่สุด',
+        'บอร์ดเป็นตารางสี่ช่องผืนเดียว ช่องสูงตามจำนวนงาน ไม่มีแถบเลื่อนซ้อนในช่องแล้ว',
+        'ธีมมืดใหม่โทนกระดานดำ ตัวหนังสือสีชอล์ก และตัวอักษรไทยใหญ่ขึ้นอ่านง่ายขึ้น',
+        'แก้ป้ายแกน "สำคัญ / ไม่สำคัญ" ด้านข้างที่แสดงสลับกัน',
+        'ช่องที่ยังว่างกดเพื่อเพิ่มงานในช่องนั้นได้ทันที',
+      ],
+    },
+    {
+      version: '0.7.1',
+      date: '2026-10-01',
+      items: [
+        'แก้หน้าต่างเพิ่ม/แก้ไขงานสั่นกระตุกตอนเปิด',
+        'หน้าต่างไม่ปิดเองแล้ว เมื่อลากเมาส์จากในหน้าต่างไปปล่อยข้างนอก หรือกด Enter ระหว่างกรอก (กด Ctrl+Enter เพื่อบันทึก)',
+      ],
+    },
+    {
       version: '0.7.0',
       date: '2026-08-30',
       items: [
@@ -881,6 +934,7 @@
       el('quickJotFab').hidden = btn.dataset.view === 'settings';
       if (btn.dataset.view === 'settings') updateGoogleConnectionUi();
       if (btn.dataset.view === 'stats') loadStats();
+      if (btn.dataset.view === 'calendar') renderCalendar();
     });
   });
 
@@ -894,17 +948,67 @@
     return (a.position - b.position) || (a.id - b.id);
   }
 
-  function dueBadgeInfo(task) {
+  const TH_WEEKDAYS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+  const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+  // วันที่แบบอ่านเร็ว เช่น "จ. 19 ต.ค. · 09:00" (ใส่ปีเฉพาะเมื่อไม่ใช่ปีนี้)
+  function formatShortThaiDue(due, hasTime, now = new Date()) {
+    const year = due.getFullYear() === now.getFullYear() ? '' : ` ${due.getFullYear()}`;
+    const time = hasTime ? ` · ${pad2(due.getHours())}:${pad2(due.getMinutes())}` : '';
+    return `${TH_WEEKDAYS[due.getDay()]} ${due.getDate()} ${TH_MONTHS[due.getMonth()]}${year}${time}`;
+  }
+
+  // แปลงกำหนดส่งเป็น "เหลืออีกกี่วัน" — ตัวเลขนี้คือสิ่งที่ต้องเห็นก่อนวันที่
+  function dueInfo(task, now = new Date()) {
     if (!task.due_date) return null;
     const due = new Date(task.due_date);
-    const now = new Date();
-    const label = formatTaskDue(task);
+    if (Number.isNaN(due.getTime())) return null;
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfDueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+    const days = Math.round((startOfDueDay - startOfToday) / 86400000);
+    const date = formatShortThaiDue(due, task.due_has_time, now);
 
-    if (due < now) return { label, cls: 'overdue' };
-    if (startOfDueDay.getTime() === startOfToday.getTime()) return { label, cls: 'today' };
-    return { label, cls: '' };
+    if (task.completed) return { rel: '', date, cls: 'done' };
+    if (due < now) return { rel: days === 0 ? 'เลยเวลาแล้ว' : `เลยมา ${-days} วัน`, date, cls: 'overdue' };
+    if (days === 0) return { rel: 'วันนี้', date, cls: 'today' };
+    if (days === 1) return { rel: 'พรุ่งนี้', date, cls: 'soon' };
+    if (days < 60) return { rel: `อีก ${days} วัน`, date, cls: days <= 3 ? 'soon' : '' };
+    return { rel: `อีก ${Math.round(days / 30)} เดือน`, date, cls: '' };
+  }
+
+  // บรรทัดใต้หัวข้อ: บอกงานที่ควรหยิบก่อน แทนคำโปรยลอย ๆ
+  function renderDashboardFocus() {
+    const line = el('dashboardFocus');
+    if (!line) return;
+    const now = new Date();
+    const pending = state.tasks.filter((task) => !task.completed);
+    const dated = pending
+      .filter((task) => task.due_date && !Number.isNaN(new Date(task.due_date).getTime()))
+      .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+    const overdue = dated.filter((task) => new Date(task.due_date) < now);
+    const strong = (text) => {
+      const node = document.createElement('strong');
+      node.textContent = text;
+      return node;
+    };
+
+    line.replaceChildren();
+    if (overdue.length > 0) {
+      const badge = document.createElement('span');
+      badge.className = 'is-overdue';
+      badge.textContent = `เลยกำหนด ${overdue.length} งาน`;
+      line.append(badge, ' — เริ่มจาก ', strong(overdue[0].title));
+      return;
+    }
+    const next = dated[0];
+    if (next) {
+      const info = dueInfo(next, now);
+      line.append('งานถัดไป: ', strong(next.title), ` · ${info.rel} (${info.date})`);
+      return;
+    }
+    line.textContent = pending.length > 0
+      ? 'ยังไม่มีงานที่ตั้งกำหนดส่ง — ใส่วันที่ไว้ แล้วจะเห็นนับถอยหลังตรงนี้'
+      : 'ไม่มีงานค้าง กด + ในช่องไหนก็ได้เพื่อเพิ่มงาน';
   }
 
   // ---------------- ตัวกรองงาน ----------------
@@ -1064,9 +1168,20 @@
 
       container.innerHTML = '';
       if (list.length === 0) {
-        const empty = document.createElement('div');
+        if (filterIsActive()) {
+          const empty = document.createElement('div');
+          empty.className = 'quad-empty';
+          empty.textContent = 'ไม่มีงานที่ตรงกับตัวกรอง';
+          container.appendChild(empty);
+          return;
+        }
+        // ช่องว่างกดเพิ่มงานในช่องนั้นได้ทันที
+        const empty = document.createElement('button');
+        empty.type = 'button';
         empty.className = 'quad-empty';
-        empty.textContent = filterIsActive() ? 'ไม่มีงานที่ตรงกับตัวกรอง' : 'ยังไม่มีงานในหมวดนี้';
+        const name = document.querySelector(`.quad-card[data-q="${q}"] .quad-name`)?.textContent || '';
+        empty.textContent = `ว่างอยู่ — กดเพื่อเพิ่มงาน${name ? `ใน "${name}"` : ''}`;
+        empty.addEventListener('click', () => openTaskModal(q, null));
         container.appendChild(empty);
         return;
       }
@@ -1076,6 +1191,8 @@
       });
     });
     renderFilterBar(visible.length);
+    renderDashboardFocus();
+    renderCalendar();
   }
 
   const RECUR_LABELS = {
@@ -1147,6 +1264,7 @@
       const desc = document.createElement('div');
       desc.className = 'task-desc';
       desc.textContent = task.description;
+      desc.title = task.description;
       main.appendChild(desc);
     }
 
@@ -1203,14 +1321,6 @@
 
     const meta = document.createElement('div');
     meta.className = 'task-meta';
-
-    const badge = dueBadgeInfo(task);
-    if (badge) {
-      const due = document.createElement('span');
-      due.className = 'task-due ' + badge.cls;
-      due.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg><span>' + badge.label + '</span>';
-      meta.appendChild(due);
-    }
 
     const recurring = recurLabel(task);
     if (recurring) {
@@ -1317,6 +1427,25 @@
 
     card.appendChild(check);
     card.appendChild(main);
+
+    const due = dueInfo(task);
+    if (due) {
+      const when = document.createElement('div');
+      when.className = 'task-when' + (due.cls ? ` ${due.cls}` : '');
+      when.title = `กำหนดส่ง ${formatTaskDue(task)}`;
+      if (due.rel) {
+        const rel = document.createElement('span');
+        rel.className = 'task-when-rel';
+        rel.textContent = due.rel;
+        when.appendChild(rel);
+      }
+      const date = document.createElement('span');
+      date.className = 'task-when-date';
+      date.textContent = due.date;
+      when.appendChild(date);
+      card.appendChild(when);
+    }
+
     card.appendChild(actions);
     return card;
   }
@@ -1734,12 +1863,12 @@
     state.archiveMonthIndex = 0;
     await refreshArchiveModal();
     el('archiveModalBackdrop').classList.remove('hidden');
-    document.body.classList.add('modal-open');
+    document.documentElement.classList.add('modal-open');
   }
 
   function closeArchiveModal() {
     el('archiveModalBackdrop').classList.add('hidden');
-    document.body.classList.remove('modal-open');
+    releaseModalLock();
     if (state.modalReturnFocus && document.contains(state.modalReturnFocus)) state.modalReturnFocus.focus();
     state.modalReturnFocus = null;
   }
@@ -1747,7 +1876,7 @@
   el('openArchiveBtn').addEventListener('click', openArchiveModal);
   el('closeArchiveBtn').addEventListener('click', closeArchiveModal);
   el('archiveModalBackdrop').addEventListener('click', (e) => {
-    if (e.target === el('archiveModalBackdrop')) closeArchiveModal();
+    if (isBackdropClick(e, el('archiveModalBackdrop'))) closeArchiveModal();
   });
   el('archivePrevMonthBtn').addEventListener('click', () => {
     if (state.archiveMonthIndex >= state.archiveMonthGroups.length - 1) return;
@@ -1927,21 +2056,21 @@
 
     el('deleteTaskBtn').classList.toggle('hidden', !task);
     el('taskModalBackdrop').classList.remove('hidden');
-    document.body.classList.add('modal-open');
+    document.documentElement.classList.add('modal-open');
     el('taskTitle').focus();
   }
 
   function closeTaskModal() {
     closeAllCustomSelects();
     el('taskModalBackdrop').classList.add('hidden');
-    document.body.classList.remove('modal-open');
+    releaseModalLock();
     if (state.modalReturnFocus && document.contains(state.modalReturnFocus)) state.modalReturnFocus.focus();
     state.modalReturnFocus = null;
   }
 
   el('cancelTaskBtn').addEventListener('click', closeTaskModal);
   el('taskModalBackdrop').addEventListener('click', (e) => {
-    if (e.target === el('taskModalBackdrop')) closeTaskModal();
+    if (isBackdropClick(e, el('taskModalBackdrop'))) closeTaskModal();
   });
 
   el('taskDueDate').addEventListener('input', (e) => {
@@ -1968,8 +2097,21 @@
     el('taskDueDate').setCustomValidity('');
   });
 
+  // กด Enter ในช่องกรอกบรรทัดเดียวจะไม่บันทึกแล้วปิดหน้าต่างทันที — ให้กด Ctrl+Enter (หรือปุ่มบันทึก) แทน
+  el('taskForm').addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || event.defaultPrevented || event.isComposing) return;
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      if (!event.repeat) el('taskForm').requestSubmit();
+      return;
+    }
+    if (event.target.tagName === 'INPUT') event.preventDefault();
+  });
+
   el('taskForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    // requestSubmit() ไม่สนว่าปุ่มบันทึกถูกปิดอยู่ จึงต้องกันการส่งซ้ำระหว่างรอเซิร์ฟเวอร์เอง
+    if (el('saveTaskBtn').disabled) return;
     const dueDate = getTaskDueValue();
     if (dueDate === undefined) return;
 
@@ -2251,6 +2393,7 @@
   }
 
   function renderSubscriptions() {
+    renderCalendar();
     const list = el('subscriptionList');
     const subscriptions = [...state.subscriptions].sort((a, b) => (
       String(a.renewal_date || '').localeCompare(String(b.renewal_date || ''))
@@ -2501,13 +2644,13 @@
     el('subscriptionNotes').value = subscription ? (subscription.notes || '') : '';
     el('deleteSubscriptionBtn').classList.toggle('hidden', !subscription);
     el('subscriptionModalBackdrop').classList.remove('hidden');
-    document.body.classList.add('modal-open');
+    document.documentElement.classList.add('modal-open');
     el('subscriptionName').focus();
   }
 
   function closeSubscriptionModal() {
     el('subscriptionModalBackdrop').classList.add('hidden');
-    document.body.classList.remove('modal-open');
+    releaseModalLock();
     state.editingSubscriptionId = null;
     if (state.modalReturnFocus && document.contains(state.modalReturnFocus)) state.modalReturnFocus.focus();
     state.modalReturnFocus = null;
@@ -2545,7 +2688,7 @@
     el('subscriptionRenewalDate').setCustomValidity('');
   });
   el('subscriptionModalBackdrop').addEventListener('click', (event) => {
-    if (event.target === el('subscriptionModalBackdrop')) closeSubscriptionModal();
+    if (isBackdropClick(event, el('subscriptionModalBackdrop'))) closeSubscriptionModal();
   });
 
   el('subscriptionForm').addEventListener('submit', async (event) => {
@@ -2778,21 +2921,23 @@
     state.modalReturnFocus = document.activeElement;
     el('jotInput').value = '';
     el('jotModalBackdrop').classList.remove('hidden');
-    document.body.classList.add('modal-open');
+    document.documentElement.classList.add('modal-open');
     el('jotInput').focus();
   });
   function closeJotModal() {
     el('jotModalBackdrop').classList.add('hidden');
-    document.body.classList.remove('modal-open');
+    releaseModalLock();
     if (state.modalReturnFocus && document.contains(state.modalReturnFocus)) state.modalReturnFocus.focus();
     state.modalReturnFocus = null;
   }
   el('cancelJotBtn').addEventListener('click', closeJotModal);
   el('jotModalBackdrop').addEventListener('click', (e) => {
-    if (e.target === el('jotModalBackdrop')) closeJotModal();
+    if (isBackdropClick(e, el('jotModalBackdrop'))) closeJotModal();
   });
   document.addEventListener('keydown', (event) => {
+    // กล่องยืนยันซ้อนอยู่บนหน้าต่างอื่นได้ จึงต้องมาก่อนในรายการ เพื่อให้ Esc/Tab ทำงานกับหน้าต่างบนสุดเท่านั้น
     const activeBackdrop = [
+      el('confirmDialogBackdrop'),
       el('taskModalBackdrop'),
       el('jotModalBackdrop'),
       el('subscriptionModalBackdrop'),
@@ -2800,6 +2945,8 @@
       .find((backdrop) => !backdrop.classList.contains('hidden'));
     if (!activeBackdrop) return;
     if (event.key === 'Escape') {
+      // confirmDialog จัดการ Esc ของตัวเองแล้ว อย่าปิดหน้าต่างที่อยู่ข้างใต้ไปด้วย
+      if (activeBackdrop === el('confirmDialogBackdrop')) return;
       event.preventDefault();
       if (activeBackdrop === el('taskModalBackdrop')) closeTaskModal();
       else if (activeBackdrop === el('jotModalBackdrop')) closeJotModal();
@@ -2838,6 +2985,417 @@
     } finally {
       setButtonLoading(button, false);
     }
+  });
+
+  // ---------------- ปฏิทิน ----------------
+  // รวมกำหนดส่งงาน (จากแดชบอร์ด) กับวันจ่าย Subscription ไว้ในตารางเดือนเดียว
+
+  const TH_MONTHS_FULL = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+  const TH_WEEKDAYS_FULL = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+  const CALENDAR_CYCLE_MONTHS = { monthly: 1, quarterly: 3, yearly: 12 };
+  const CALENDAR_CELL_LIMIT = 3;
+
+  const calendarState = {
+    month: null, // วันที่ 1 ของเดือนที่แสดง
+    selected: null, // 'YYYY-MM-DD'
+    showTasks: true,
+    showSubs: true,
+    showDone: false,
+  };
+
+  function dateKey(date) {
+    return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+  }
+
+  function todayKey() {
+    return dateKey(new Date());
+  }
+
+  // วันจ่ายทุกรอบของ Subscription ที่ตกอยู่ในช่วงวันที่ — ยึดวันที่ของรอบแรกไว้แบบเดียวกับฝั่งเซิร์ฟเวอร์
+  function subscriptionOccurrences(subscription, startKey, endKey) {
+    const first = localDateFromValue(subscription.renewal_date);
+    if (!first) return [];
+    const cycle = subscription.billing_cycle || 'monthly';
+    if (cycle === 'one_time') {
+      const key = dateKey(first);
+      return key >= startKey && key <= endKey ? [{ key, isFirst: true }] : [];
+    }
+
+    // รอบที่ n นับจากวันต่ออายุ — คำนวณจาก first ทุกครั้ง เดือนที่สั้นกว่าจึงไม่ทำให้วันร่นถาวร
+    const anchorDay = first.getDate();
+    const months = CALENDAR_CYCLE_MONTHS[cycle] ?? 1;
+    const occurrence = (n) => {
+      if (cycle === 'weekly') return new Date(first.getFullYear(), first.getMonth(), first.getDate() + 7 * n);
+      const target = new Date(first.getFullYear(), first.getMonth() + months * n, 1);
+      const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+      return new Date(target.getFullYear(), target.getMonth(), Math.min(anchorDay, lastDay));
+    };
+
+    // กระโดดไปใกล้รอบแรกที่อยู่ในช่วงเลย ไม่ต้องไล่ทีละรอบจากวันต่ออายุที่อาจเก่ามาก
+    const start = localDateFromValue(startKey);
+    let n = 0;
+    if (cycle === 'weekly') {
+      n = Math.max(0, Math.floor((start - first) / (7 * 86400000)));
+    } else {
+      const monthGap = (start.getFullYear() - first.getFullYear()) * 12 + (start.getMonth() - first.getMonth());
+      n = Math.max(0, Math.floor(monthGap / months) - 1);
+    }
+
+    const result = [];
+    for (let guard = 0; guard < 60; guard += 1, n += 1) {
+      const key = dateKey(occurrence(n));
+      if (key > endKey) break;
+      if (key >= startKey) result.push({ key, isFirst: n === 0 });
+    }
+    return result;
+  }
+
+  // รวมรายการทั้งหมดในช่วงวันที่ แล้วจัดกลุ่มตามวัน
+  function calendarEntries(startKey, endKey, filter = calendarState) {
+    const byDay = new Map();
+    const add = (key, entry) => {
+      if (!byDay.has(key)) byDay.set(key, []);
+      byDay.get(key).push(entry);
+    };
+
+    if (filter.showTasks) {
+      state.tasks.forEach((task) => {
+        if (!task.due_date || (task.completed && !filter.showDone)) return;
+        const due = new Date(task.due_date);
+        if (Number.isNaN(due.getTime())) return;
+        const key = dateKey(due);
+        if (key < startKey || key > endKey) return;
+        add(key, { type: 'task', task, sort: task.due_has_time ? due.getHours() * 60 + due.getMinutes() : 24 * 60 });
+      });
+    }
+
+    if (filter.showSubs) {
+      state.subscriptions.forEach((subscription) => {
+        subscriptionOccurrences(subscription, startKey, endKey).forEach(({ key, isFirst }) => {
+          // รอบแรกคือรอบที่ยังไม่ได้กดยืนยันการจ่าย รอบถัด ๆ ไปเป็นการคาดการณ์ล่วงหน้า
+          add(key, { type: 'sub', subscription, upcoming: !isFirst, sort: -1 });
+        });
+      });
+    }
+
+    byDay.forEach((list) => list.sort((a, b) => a.sort - b.sort));
+    return byDay;
+  }
+
+  function calendarEntryLabel(entry) {
+    if (entry.type === 'task') return entry.task.title;
+    const amount = hasAmount(entry.subscription)
+      ? ` ${formatMoney(entry.subscription.amount, entry.subscription.currency || 'THB')}`
+      : '';
+    return `${entry.subscription.name}${amount}`;
+  }
+
+  function ensureCalendarState() {
+    if (calendarState.month) return;
+    const now = new Date();
+    calendarState.month = new Date(now.getFullYear(), now.getMonth(), 1);
+    calendarState.selected = todayKey();
+  }
+
+  function renderCalendar() {
+    const grid = el('calendarGrid');
+    // หน้าปฏิทินซ่อนอยู่ก็ไม่ต้องสร้างใหม่ — จะถูกวาดอีกครั้งตอนกดเข้าหน้านี้
+    if (!grid || !el('view-calendar').classList.contains('active')) return;
+    ensureCalendarState();
+
+    const month = calendarState.month;
+    const gridStart = new Date(month.getFullYear(), month.getMonth(), 1 - month.getDay());
+    const weeks = Math.ceil((month.getDay() + new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()) / 7);
+    const gridEnd = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + weeks * 7 - 1);
+    const entries = calendarEntries(dateKey(gridStart), dateKey(gridEnd));
+    const today = todayKey();
+
+    el('calendarMonthLabel').textContent = `${TH_MONTHS_FULL[month.getMonth()]} ${month.getFullYear()}`;
+    renderCalendarMonthSummary(month);
+
+    grid.replaceChildren();
+    grid.style.setProperty('--calendar-weeks', weeks);
+    for (let index = 0; index < weeks * 7; index += 1) {
+      const day = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + index);
+      const key = dateKey(day);
+      const list = entries.get(key) || [];
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'calendar-cell';
+      cell.dataset.date = key;
+      cell.setAttribute('role', 'gridcell');
+      if (day.getMonth() !== month.getMonth()) cell.classList.add('is-outside');
+      if (key === today) cell.classList.add('is-today');
+      if (key < today) cell.classList.add('is-past');
+      if (day.getDay() === 0) cell.classList.add('is-sunday');
+      if (key === calendarState.selected) {
+        cell.classList.add('is-selected');
+        cell.setAttribute('aria-selected', 'true');
+      }
+      cell.tabIndex = key === calendarState.selected ? 0 : -1;
+
+      const taskCount = list.filter((entry) => entry.type === 'task').length;
+      const subCount = list.length - taskCount;
+      const parts = [];
+      if (taskCount) parts.push(`${taskCount} งาน`);
+      if (subCount) parts.push(`จ่าย ${subCount} รายการ`);
+      cell.setAttribute('aria-label', `${TH_WEEKDAYS_FULL[day.getDay()]} ${day.getDate()} ${TH_MONTHS_FULL[day.getMonth()]}${parts.length ? ` — ${parts.join(', ')}` : ''}`);
+
+      const number = document.createElement('span');
+      number.className = 'calendar-cell-date';
+      number.textContent = day.getDate();
+      cell.appendChild(number);
+
+      if (list.length > 0) {
+        const items = document.createElement('span');
+        items.className = 'calendar-cell-items';
+        list.slice(0, CALENDAR_CELL_LIMIT).forEach((entry) => {
+          const item = document.createElement('span');
+          item.className = `calendar-chip is-${entry.type}`;
+          if (entry.type === 'task') {
+            item.dataset.q = entry.task.quadrant;
+            if (entry.task.completed) item.classList.add('is-done');
+          } else if (entry.upcoming) {
+            item.classList.add('is-upcoming');
+          }
+          item.textContent = calendarEntryLabel(entry);
+          items.appendChild(item);
+        });
+        if (list.length > CALENDAR_CELL_LIMIT) {
+          const more = document.createElement('span');
+          more.className = 'calendar-more';
+          more.textContent = `+ อีก ${list.length - CALENDAR_CELL_LIMIT}`;
+          items.appendChild(more);
+        }
+        cell.appendChild(items);
+
+        // จุดสีสำหรับจอแคบที่ไม่มีที่พอแสดงชื่อ
+        const dots = document.createElement('span');
+        dots.className = 'calendar-dots';
+        dots.setAttribute('aria-hidden', 'true');
+        list.slice(0, 4).forEach((entry) => {
+          const dot = document.createElement('i');
+          dot.className = `is-${entry.type}`;
+          if (entry.type === 'task') dot.dataset.q = entry.task.quadrant;
+          dots.appendChild(dot);
+        });
+        cell.appendChild(dots);
+      }
+
+      grid.appendChild(cell);
+    }
+
+    renderCalendarDay(entries);
+  }
+
+  // สรุปจากข้อมูลจริงทั้งเดือน ไม่ขึ้นกับตัวเลือกซ่อน/แสดงบนปฏิทิน (งานที่เสร็จแล้วไม่นับ)
+  function renderCalendarMonthSummary(month) {
+    const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+    const entries = calendarEntries(dateKey(month), dateKey(monthEnd), { showTasks: true, showSubs: true, showDone: false });
+    let tasks = 0;
+    const subs = [];
+    entries.forEach((list) => {
+      list.forEach((entry) => {
+        if (entry.type === 'task') tasks += 1;
+        else subs.push(entry.subscription);
+      });
+    });
+    const totals = new Map();
+    subs.forEach((subscription) => {
+      if (!hasAmount(subscription)) return;
+      const currency = subscription.currency || 'THB';
+      totals.set(currency, (totals.get(currency) || 0) + Number(subscription.amount));
+    });
+    const money = [...totals.entries()].map(([currency, amount]) => formatMoney(amount, currency)).join(' + ');
+
+    const line = el('calendarMonthSummary');
+    line.replaceChildren();
+    if (tasks === 0 && subs.length === 0) {
+      line.textContent = 'เดือนนี้ยังว่าง — ไม่มีกำหนดส่งงานหรือวันจ่ายเงิน';
+      return;
+    }
+    const strong = (text) => {
+      const node = document.createElement('strong');
+      node.textContent = text;
+      return node;
+    };
+    if (tasks > 0) line.append('เดือนนี้มี ', strong(`${tasks} งาน`), ' ที่ต้องส่ง');
+    else line.append('เดือนนี้ไม่มีงานต้องส่ง');
+    if (subs.length > 0) {
+      line.append(' · ต้องจ่าย ', strong(`${subs.length} รายการ`));
+      if (money) line.append(' รวม ', strong(money));
+    }
+  }
+
+  function renderCalendarDay(entries) {
+    const key = calendarState.selected;
+    const date = localDateFromValue(key);
+    const list = entries.get(key) || [];
+    const days = subscriptionDaysLeft(key);
+
+    el('calendarDayTitle').textContent = `${TH_WEEKDAYS_FULL[date.getDay()]} ${date.getDate()} ${TH_MONTHS_FULL[date.getMonth()]}`;
+    let relative = '';
+    if (days === 0) relative = 'วันนี้';
+    else if (days === 1) relative = 'พรุ่งนี้';
+    else if (days === -1) relative = 'เมื่อวาน';
+    else if (days > 1) relative = `อีก ${days} วัน`;
+    else relative = `${-days} วันที่แล้ว`;
+    el('calendarDaySub').textContent = `${relative} · ${list.length ? `${list.length} รายการ` : 'ไม่มีรายการ'}`;
+    const dayName = days === 0 ? 'วันนี้' : `วันที่ ${date.getDate()} ${TH_MONTHS[date.getMonth()]}`;
+    el('calendarAddTaskBtn').textContent = `+ เพิ่มงานที่ต้องส่ง${dayName}`;
+
+    const agenda = el('calendarAgenda');
+    agenda.replaceChildren();
+    if (list.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'calendar-agenda-empty';
+      empty.textContent = `${days === 0 ? 'วันนี้' : 'วันนั้น'}ว่าง ไม่มีงานต้องส่งหรือบิลต้องจ่าย`;
+      agenda.appendChild(empty);
+      return;
+    }
+
+    list.forEach((entry) => {
+      const item = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `calendar-agenda-item is-${entry.type}`;
+
+      const mark = document.createElement('span');
+      mark.className = 'calendar-agenda-mark';
+      mark.setAttribute('aria-hidden', 'true');
+
+      const body = document.createElement('span');
+      body.className = 'calendar-agenda-body';
+      const title = document.createElement('span');
+      title.className = 'calendar-agenda-title';
+      const meta = document.createElement('span');
+      meta.className = 'calendar-agenda-meta';
+      const side = document.createElement('span');
+      side.className = 'calendar-agenda-side';
+
+      if (entry.type === 'task') {
+        const { task } = entry;
+        button.dataset.q = task.quadrant;
+        if (task.completed) button.classList.add('is-done');
+        mark.textContent = `Q${task.quadrant}`;
+        title.textContent = task.title;
+        const due = new Date(task.due_date);
+        const pieces = [QUADRANT_SHORT[task.quadrant].replace(/^Q\d\s*/, '')];
+        if (task.due_has_time) pieces.unshift(`${pad2(due.getHours())}:${pad2(due.getMinutes())} น.`);
+        if (task.completed) pieces.push('เสร็จแล้ว');
+        meta.textContent = pieces.join(' · ');
+        const info = dueInfo(task);
+        if (info && info.rel) {
+          side.textContent = info.rel;
+          side.classList.add(info.cls || 'is-normal');
+        }
+        button.setAttribute('aria-label', `เปิดงาน ${task.title}`);
+        button.addEventListener('click', () => openTaskModal(task.quadrant, task));
+      } else {
+        const { subscription } = entry;
+        mark.textContent = '฿';
+        title.textContent = subscription.name;
+        const pieces = [];
+        if (subscription.plan_name) pieces.push(subscription.plan_name);
+        pieces.push(entry.upcoming ? 'รอบถัดไป (คาดการณ์)' : CYCLE_LABELS[subscription.billing_cycle] || 'ต่ออายุ');
+        meta.textContent = pieces.join(' · ');
+        side.textContent = hasAmount(subscription)
+          ? formatMoney(subscription.amount, subscription.currency || 'THB')
+          : (subscription.price || '');
+        button.setAttribute('aria-label', `เปิด Subscription ${subscription.name}`);
+        button.addEventListener('click', () => openSubscriptionModal(subscription));
+      }
+
+      body.append(title, meta);
+      button.append(mark, body, side);
+      item.appendChild(button);
+      agenda.appendChild(item);
+    });
+  }
+
+  function selectCalendarDay(key, { focus = false } = {}) {
+    calendarState.selected = key;
+    const date = localDateFromValue(key);
+    if (date.getFullYear() !== calendarState.month.getFullYear() || date.getMonth() !== calendarState.month.getMonth()) {
+      calendarState.month = new Date(date.getFullYear(), date.getMonth(), 1);
+    }
+    renderCalendar();
+    if (focus) el('calendarGrid').querySelector(`[data-date="${key}"]`)?.focus();
+  }
+
+  function shiftCalendarMonth(delta) {
+    ensureCalendarState();
+    const month = new Date(calendarState.month.getFullYear(), calendarState.month.getMonth() + delta, 1);
+    calendarState.month = month;
+    const today = new Date();
+    calendarState.selected = month.getFullYear() === today.getFullYear() && month.getMonth() === today.getMonth()
+      ? todayKey()
+      : dateKey(month);
+    renderCalendar();
+  }
+
+  el('calendarPrevBtn').addEventListener('click', () => shiftCalendarMonth(-1));
+  el('calendarNextBtn').addEventListener('click', () => shiftCalendarMonth(1));
+  el('calendarTodayBtn').addEventListener('click', () => selectCalendarDay(todayKey()));
+
+  el('calendarGrid').addEventListener('click', (event) => {
+    const cell = event.target.closest('.calendar-cell');
+    if (cell) selectCalendarDay(cell.dataset.date);
+  });
+
+  // เลื่อนวันด้วยลูกศรเมื่อโฟกัสอยู่ในตาราง
+  el('calendarGrid').addEventListener('keydown', (event) => {
+    const moves = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+    if (!(event.key in moves)) return;
+    event.preventDefault();
+    const current = localDateFromValue(calendarState.selected);
+    const next = new Date(current.getFullYear(), current.getMonth(), current.getDate() + moves[event.key]);
+    selectCalendarDay(dateKey(next), { focus: true });
+  });
+
+  [['calendarShowTasks', 'showTasks'], ['calendarShowSubs', 'showSubs'], ['calendarShowDone', 'showDone']].forEach(([id, field]) => {
+    el(id).addEventListener('change', (event) => {
+      calendarState[field] = event.target.checked;
+      renderCalendar();
+    });
+  });
+
+  // เพิ่มงานโดยตั้งกำหนดส่งเป็นวันที่เลือกไว้ให้เลย
+  el('calendarAddTaskBtn').addEventListener('click', () => {
+    const date = localDateFromValue(calendarState.selected);
+    openTaskModal(1, null);
+    setTaskDueValue(new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999).toISOString(), false);
+  });
+
+  // ---------------- อัปเดตตามเวลา ----------------
+  // ตัวนับ "อีก N วัน" / "วันนี้" และไฮไลต์วันนี้บนปฏิทินคำนวณตอนวาดเท่านั้น
+  // จึงต้องวาดใหม่เมื่อข้ามวัน หรือเมื่อมีงานที่ระบุเวลาเพิ่งเลยกำหนดไป (เช่นเปิดแอปค้างข้ามคืน)
+
+  let lastClockCheck = Date.now();
+
+  function refreshTimeSensitiveViews() {
+    if (!state.authenticated) return;
+    const now = Date.now();
+    const dayChanged = dateKey(new Date(lastClockCheck)) !== dateKey(new Date(now));
+    const crossedDue = state.tasks.some((task) => {
+      if (task.completed || !task.due_date) return false;
+      const due = new Date(task.due_date).getTime();
+      return due > lastClockCheck && due <= now;
+    });
+    if (!dayChanged && !crossedDue) {
+      lastClockCheck = now;
+      return;
+    }
+    // กำลังลากงานอยู่ อย่าวาดบอร์ดทับ — รอรอบถัดไป (ไม่ขยับ lastClockCheck จะได้ไม่พลาด)
+    if (drag.active) return;
+    lastClockCheck = now;
+    el('todayLabel').textContent = formatDueDate(new Date(now));
+    renderMatrix();
+  }
+
+  setInterval(refreshTimeSensitiveViews, 60 * 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshTimeSensitiveViews();
   });
 
   // ---------------- สถิติ ----------------

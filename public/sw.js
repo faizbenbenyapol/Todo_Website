@@ -1,5 +1,5 @@
 /* Service worker ของ Eisenhower Board — ทำให้เปิดแอปได้แม้เน็ตหลุด */
-const APP_VERSION = '0.7.0';
+const APP_VERSION = '0.9.1';
 const CACHE_NAME = `eisenhower-board-${APP_VERSION}`;
 const OFFLINE_URL = '/index.html';
 const PRECACHE_URLS = [
