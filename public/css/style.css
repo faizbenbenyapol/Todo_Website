@@ -1222,17 +1222,18 @@ textarea.field-textarea {
 }
 
 /* ---------- Matrix ----------
-   บอร์ดเดียวแบ่งสี่ช่องด้วยเส้นกากบาท เหมือนตาราง Eisenhower ที่วาดบนกระดาษ
-   ช่องสูงตามจำนวนงาน (ไม่มีแถบเลื่อนซ้อนในช่อง) */
+   สี่ช่องเป็นการ์ดแยกกัน มีช่องว่างคั่น แถบสีบนหัวช่อง และพื้นอมสีประจำช่อง
+   เพื่อให้เห็นทันทีว่างานอยู่ช่องไหนแม้งานเยอะ ช่องสูงตามจำนวนงาน (ไม่มีแถบเลื่อนซ้อนในช่อง) */
 
 .matrix-axes {
   display: grid;
-  grid-template-columns: 28px 1fr 1fr;
-  grid-template-rows: auto auto auto;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 14px;
   max-width: 1180px;
 }
 
 .axis-label {
+  align-self: stretch;
   font-size: 12.5px;
   font-weight: 600;
   color: var(--fog);
@@ -1242,40 +1243,55 @@ textarea.field-textarea {
   text-align: center;
 }
 
-.axis-top-left { grid-column: 2; grid-row: 1; padding-bottom: 8px; }
-.axis-top-right { grid-column: 3; grid-row: 1; padding-bottom: 8px; }
-.axis-side {
-  grid-column: 1;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  padding-left: 8px;
+.axis-top-left { grid-column: 1; grid-row: 1; padding-bottom: 8px; }
+.axis-top-right { grid-column: 2; grid-row: 1; padding-bottom: 8px; }
+
+/* สองคอลัมน์เรียงการ์ดต่อกันเอง: ซ้าย = ด่วน (Q1 บน Q3), ขวา = ไม่ด่วน (Q2 บน Q4)
+   ช่องล่างจึงขยับขึ้นมาชิดช่องบนของคอลัมน์ตัวเอง ไม่ต้องรอช่องข้างๆ */
+.matrix-col {
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  align-items: stretch;
 }
-.axis-side-top { grid-row: 2; }
-.axis-side-bottom { grid-row: 3; }
 
 .quad-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  border-top: 4px solid var(--accent);
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 240px;
 }
 
-.quad-card[data-q="1"] { --accent: var(--q1); --accent-bg: var(--q1-bg); grid-column: 2; grid-row: 2; border-radius: var(--radius-lg) 0 0 0; }
-.quad-card[data-q="2"] { --accent: var(--q2); --accent-bg: var(--q2-bg); grid-column: 3; grid-row: 2; border-left: 0; border-radius: 0 var(--radius-lg) 0 0; }
-.quad-card[data-q="3"] { --accent: var(--q3); --accent-bg: var(--q3-bg); grid-column: 2; grid-row: 3; border-top: 0; border-radius: 0 0 0 var(--radius-lg); }
-.quad-card[data-q="4"] { --accent: var(--q4); --accent-bg: var(--q4-bg); grid-column: 3; grid-row: 3; border-top: 0; border-left: 0; border-radius: 0 0 var(--radius-lg) 0; }
+.quad-card[data-q="1"] { --accent: var(--q1); --accent-bg: var(--q1-bg); }
+.quad-card[data-q="2"] { --accent: var(--q2); --accent-bg: var(--q2-bg); }
+.quad-card[data-q="3"] { --accent: var(--q3); --accent-bg: var(--q3-bg); }
+.quad-card[data-q="4"] { --accent: var(--q4); --accent-bg: var(--q4-bg); }
 
 .quad-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 16px 18px 12px;
+  padding: 14px 18px 12px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
-.quad-title-group { display: flex; align-items: center; gap: 10px; min-width: 0; }
+@media (min-width: 901px) {
+  .quad-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+    border-bottom: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+  }
+}
+
+.quad-title-group { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; row-gap: 0; }
 
 /* เลขช่องแบบที่เขียนกำกับไว้บนตาราง — สีประจำช่องอยู่ตรงนี้ที่เดียว */
 .quad-tag {
@@ -1299,15 +1315,21 @@ textarea.field-textarea {
   line-height: 1.3;
 }
 
-/* บนจอกว้างมีป้ายแกนบอกแล้ว จึงแสดงคำอธิบายช่องเฉพาะตอนจอแคบ */
-.quad-sub { display: none; color: var(--fog); font-size: 12.5px; }
+/* คำอธิบายช่อง (ด่วน · สำคัญ) แสดงตลอด ไม่ต้องไล่สายตากลับไปดูป้ายแกน */
+.quad-sub { color: var(--accent); font-size: 12.5px; font-weight: 600; }
 
 .quad-head-side { display: flex; align-items: center; gap: 10px; }
 
 .quad-count {
   font-family: var(--font-mono);
   font-size: 13px;
-  color: var(--fog);
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-bg);
+  min-width: 26px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-align: center;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1365,6 +1387,7 @@ button.quad-empty:hover { color: var(--accent); border-color: var(--accent); }
   background: transparent;
   transition: background 0.15s ease, opacity 0.15s ease;
 }
+.quad-card .task-card { border-left: 3px solid color-mix(in srgb, var(--accent) 65%, transparent); border-radius: 3px var(--radius-sm) var(--radius-sm) 3px; }
 .task-card + .task-card::before {
   content: '';
   position: absolute;
@@ -2261,14 +2284,17 @@ button.quad-empty:hover { color: var(--accent); border-color: var(--accent); }
   .main { padding: 20px 16px 90px; }
   .matrix-axes {
     grid-template-columns: 1fr;
-    grid-template-rows: none;
     gap: 12px;
   }
-  .axis-top-left, .axis-top-right, .axis-side { display: none; }
-  .quad-card[data-q] { grid-column: 1; grid-row: auto; border: 1px solid var(--line); border-radius: var(--radius-md); }
+  .axis-top-left, .axis-top-right { display: none; }
+  /* จอแคบเรียงเป็นคอลัมน์เดียวตามลำดับ Q1-Q4 */
+  .matrix-col { display: contents; }
+  .quad-card[data-q="1"] { order: 1; }
+  .quad-card[data-q="2"] { order: 2; }
+  .quad-card[data-q="3"] { order: 3; }
+  .quad-card[data-q="4"] { order: 4; }
   .quad-card { min-height: 0; }
-  .quad-title-group { flex-wrap: wrap; row-gap: 0; }
-  .quad-sub { display: block; flex-basis: 100%; padding-left: 40px; }
+  .quad-sub { flex-basis: 100%; padding-left: 40px; }
   .quad-empty { min-height: 72px; }
   .google-connection-card { align-items: flex-start; flex-direction: column; }
 }
