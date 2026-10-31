@@ -4,6 +4,14 @@ services:
     container_name: eisenhower-board
     restart: unless-stopped
     init: true
+    labels:
+      benyapol.enable: "true"
+      benyapol.slug: "todo"
+      benyapol.name: "Eisenhower Board"
+      benyapol.url: "https://todo.benyapol.com"
+      benyapol.state: "live"
+      benyapol.health: "/"
+      benyapol.desc: "บอร์ดจัดลำดับงานแบบ Eisenhower"
     ports:
       - "127.0.0.1:${HOST_PORT:-3000}:3000"
     environment:
